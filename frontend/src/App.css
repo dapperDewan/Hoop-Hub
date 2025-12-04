@@ -1,0 +1,171 @@
+.reveal-section,
+.reveal-card {
+	opacity: 0;
+	transform: translateY(24px);
+	transition: opacity 700ms ease, transform 700ms ease;
+}
+
+.reveal-card {
+	transform: translateY(20px) scale(0.98);
+}
+
+.reveal-section[data-visible='true'],
+.reveal-card[data-visible='true'] {
+	opacity: 1;
+	transform: translateY(0) scale(1);
+}
+
+.basketball-motion {
+	position: relative;
+	overflow: hidden;
+}
+
+.basketball-motion::before {
+	content: '';
+	position: absolute;
+	inset: -50%;
+	background: radial-gradient(circle at 30% 30%, rgba(255, 173, 89, 0.18), transparent 55%),
+		radial-gradient(circle at 70% 60%, rgba(86, 196, 255, 0.15), transparent 60%);
+	filter: blur(60px);
+	animation: pulseGradient 18s ease-in-out infinite;
+}
+
+.basketball-orb {
+	position: absolute;
+	width: 180px;
+	height: 180px;
+	border-radius: 9999px;
+	background: radial-gradient(circle at 30% 30%, #ffd9a0 0%, #ff9248 55%, #c1571e 100%);
+	opacity: 0.45;
+	box-shadow: 0 20px 40px rgba(255, 146, 72, 0.35);
+	animation: floatBall 20s ease-in-out infinite;
+}
+
+.basketball-orb::before,
+.basketball-orb::after {
+	content: '';
+	position: absolute;
+	inset: 0;
+	border-radius: 9999px;
+	border: 2px solid rgba(255, 255, 255, 0.1);
+	mix-blend-mode: screen;
+}
+
+.basketball-orb::after {
+	border: none;
+	background:
+		repeating-linear-gradient(0deg, transparent 0 12px, rgba(0, 0, 0, 0.15) 12px 14px);
+	opacity: 0.4;
+}
+
+.basketball-orb.orb-one {
+	top: -30px;
+	left: -40px;
+}
+
+.basketball-orb.orb-two {
+	bottom: -60px;
+	right: -35px;
+	animation-duration: 24s;
+	animation-delay: -6s;
+	opacity: 0.3;
+}
+
+.nav-info-card {
+	animation: infoFade 0.6s ease both;
+}
+
+.moving-indicator {
+	width: 18px;
+	height: 6px;
+	border-radius: 9999px;
+	background: linear-gradient(90deg, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.6));
+	animation: movingDot 1.8s ease-in-out infinite;
+}
+
+.moving-indicator.delay {
+	animation-delay: 0.2s;
+}
+
+.moving-indicator.delay-2 {
+	animation-delay: 0.4s;
+}
+
+@keyframes floatBall {
+	0% {
+		transform: translate3d(0, 0, 0) rotate(0deg);
+	}
+	50% {
+		transform: translate3d(30%, 15%, 0) rotate(12deg);
+	}
+	100% {
+		transform: translate3d(-10%, -5%, 0) rotate(0deg);
+	}
+}
+
+@keyframes pulseGradient {
+	0% {
+		opacity: 0.4;
+	}
+	50% {
+		opacity: 0.65;
+	}
+	100% {
+		opacity: 0.4;
+	}
+}
+
+@keyframes movingDot {
+	0% {
+		opacity: 0.2;
+		transform: translateX(0);
+	}
+	50% {
+		opacity: 1;
+		transform: translateX(12px);
+	}
+	100% {
+		opacity: 0.2;
+		transform: translateX(0);
+	}
+}
+
+@keyframes infoFade {
+	0% {
+		opacity: 0;
+		transform: translateY(12px);
+	}
+	100% {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.reveal-section,
+	.reveal-card {
+		transition-duration: 0ms !important;
+		transform: none !important;
+		animation: none !important;
+	}
+
+	.basketball-motion::before,
+	.basketball-orb,
+	.nav-info-card,
+	.moving-indicator {
+		animation: none !important;
+	}
+}
+
+@media (max-width: 640px) {
+	.basketball-motion::before,
+	.basketball-orb {
+		display: none;
+	}
+
+	.reveal-section,
+	.reveal-card {
+		opacity: 1 !important;
+		transform: none !important;
+	}
+}

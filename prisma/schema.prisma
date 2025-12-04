@@ -1,0 +1,130 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// User model - matches existing MongoDB users collection
+model User {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  username      String   @unique
+  email         String?
+  password      String
+  googleId      String?
+  isAdmin       Boolean  @default(false)
+  favorites     String[] @db.ObjectId // Player IDs
+  favoriteTeams String[] @db.ObjectId // Team IDs
+  profile       Profile?
+  createdAt     DateTime?
+  updatedAt     DateTime?
+  dreamTeams    DreamTeam[]
+  v             Int?     @map("__v")
+
+  @@map("users")
+}
+
+type Profile {
+  bio          String?
+  location     String?
+  avatar       String?
+  displayName  String?
+  favoriteTeam String?
+}
+
+// Player model - matches existing MongoDB players collection
+model Player {
+  id        String       @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  team      String
+  position  String
+  number    Int?
+  height    String?
+  weight    String?
+  age       Int?
+  stats     PlayerStats?
+  image     String?
+  v         Int?         @map("__v")
+
+  @@map("players")
+}
+
+type PlayerStats {
+  points    Float?
+  rebounds  Float?
+  assists   Float?
+  steals    Float?
+  blocks    Float?
+  gamesPlayed Int?
+}
+
+// Team model - matches existing MongoDB teams collection
+model Team {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  name            String   @unique
+  city            String?
+  conference      String?
+  division        String?
+  logo            String?
+  roster          String[] @db.ObjectId // Player IDs
+  championships   Int?
+  establishedYear Int?
+  createdAt       DateTime?
+  updatedAt       DateTime?
+
+  @@map("teams")
+}
+
+// Match model - matches existing MongoDB matches collection
+model Match {
+  id        String      @id @default(auto()) @map("_id") @db.ObjectId
+  homeTeam  String?     @db.ObjectId
+  awayTeam  String?     @db.ObjectId
+  date      DateTime?
+  venue     String?
+  score     MatchScore?
+  status    String?
+  createdAt DateTime?
+  updatedAt DateTime?
+
+  @@map("matches")
+}
+
+type MatchScore {
+  home Int?
+  away Int?
+}
+
+// Merchandise model - matches existing MongoDB merchandises collection
+model Merchandise {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  price       Float?
+  image       String?
+  stock       Int?
+  category    String?
+  verified    Boolean?
+  createdAt   DateTime?
+  updatedAt   DateTime?
+
+  @@map("merchandises")
+}
+
+// DreamTeam model - matches existing MongoDB dreamteams collection
+model DreamTeam {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id])
+  name      String?
+  players   String[] @db.ObjectId // Player IDs
+  createdAt DateTime?
+  updatedAt DateTime?
+
+  @@map("dreamteams")
+}
