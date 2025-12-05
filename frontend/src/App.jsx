@@ -1,5 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { Suspense, lazy, useEffect, useMemo, useState, useCallback } from 'react';
 import Navbar from './components/Navbar';
 import './App.css';
 import Footer from './components/Footer';
@@ -44,11 +44,6 @@ const persistSession = ({ username, isAdmin, token } = {}) => {
 
 function App() {
   const [session, setSession] = useState(getSessionFromStorage);
-  const routeFallback = useMemo(() => (
-    <div className="flex min-h-[50vh] items-center justify-center">
-      <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-label="Loading route" />
-    </div>
-  ), []);
 
   useEffect(() => {
     const handleStorage = () => setSession(getSessionFromStorage());
@@ -61,23 +56,38 @@ function App() {
     setSession(getSessionFromStorage());
   };
 
-  const handleLogout = () => {
+  return (
+    <Router>
+      <AppContent session={session} setSession={setSession} onAuthSuccess={handleAuthSuccess} />
+    </Router>
+  )
+}
+
+function AppContent({ session, setSession, onAuthSuccess }) {
+  const navigate = useNavigate();
+  const routeFallback = useMemo(() => (
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-label="Loading route" />
+    </div>
+  ), []);
+
+  const handleLogout = useCallback(() => {
     localStorage.removeItem('username');
     localStorage.removeItem('token');
     localStorage.removeItem('isAdmin');
     setSession({ username: null, isAdmin: false, token: null });
-  };
+    navigate('/auth');
+  }, [setSession, navigate]);
 
   return (
-    <Router>
-      <div className="min-h-screen bg-slate-950 text-white">
-        <Navbar
-          isAuthenticated={Boolean(session.username)}
-          isAdmin={session.isAdmin}
-          username={session.username}
-          onLogout={handleLogout}
-        />
-        <main>
+    <div className="min-h-screen bg-slate-950 text-white">
+      <Navbar
+        isAuthenticated={Boolean(session.username)}
+        isAdmin={session.isAdmin}
+        username={session.username}
+        onLogout={handleLogout}
+      />
+      <main>
           <Suspense fallback={routeFallback}>
             <Routes>
               <Route path="/" element={<HomePage isAuthenticated={Boolean(session.username)} />} />
@@ -92,16 +102,15 @@ function App() {
               <Route path="/view-dreamteam" element={<ViewDreamTeam />} />
               <Route path="/fixtures" element={<FixturesPage />} />
               <Route path="/admin" element={<AdminDashboard />} />
-              <Route path="/merchandise" element={<MerchandisePage />} />
+              <Route path="/merchandise" element={<MerchandisePage isAuthenticated={Boolean(session.username)} isAdmin={session.isAdmin} />} />
               <Route path="/fun-facts" element={<FunFacts />} />
-              <Route path="/auth" element={<AuthPage onAuthSuccess={handleAuthSuccess} />} />
+              <Route path="/auth" element={<AuthPage onAuthSuccess={onAuthSuccess} />} />
               <Route path="*" element={<div className="flex min-h-[50vh] items-center justify-center text-white">Page not found.</div>} />
             </Routes>
           </Suspense>
         </main>
         <Footer />
       </div>
-    </Router>
   )
 }
 

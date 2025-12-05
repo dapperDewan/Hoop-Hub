@@ -58,12 +58,13 @@ const AdminDashboard = () => {
           </thead>
           <tbody>
             {users.map(u => (
-              <tr key={u._id}>
+              <tr key={u.id || u._id}>
                 <td className="p-2 border-t">{u.username}</td>
                 <td className="p-2 border-t">
                   <button className="px-3 py-1 bg-red-500 text-white rounded" onClick={async () => {
-                    await apiClient.delete(`admin/users/${u._id}`, { params: { admin: true } });
-                    setUsers(users => users.filter(user => user._id !== u._id));
+                    const userId = u.id || u._id;
+                    await apiClient.delete(`admin/users/${userId}`, { params: { admin: true } });
+                    setUsers(users => users.filter(user => (user.id || user._id) !== userId));
                   }}>Delete</button>
                 </td>
               </tr>
@@ -83,14 +84,15 @@ const AdminDashboard = () => {
           </thead>
           <tbody>
             {players.map(p => (
-              <tr key={p._id}>
+              <tr key={p.id || p._id}>
                 <td className="p-2 border-t">{p.name}</td>
                 <td className="p-2 border-t">{p.team}</td>
                 <td className="p-2 border-t">{p.position}</td>
                 <td className="p-2 border-t">
                   <button className="px-3 py-1 bg-red-500 text-white rounded" onClick={async () => {
-                    await apiClient.delete(`admin/players/${p._id}`, { params: { admin: true } });
-                    setPlayers(players => players.filter(player => player._id !== p._id));
+                    const playerId = p.id || p._id;
+                    await apiClient.delete(`admin/players/${playerId}`, { params: { admin: true } });
+                    setPlayers(players => players.filter(player => (player.id || player._id) !== playerId));
                   }}>Delete</button>
                 </td>
               </tr>
@@ -108,12 +110,13 @@ const AdminDashboard = () => {
           </thead>
           <tbody>
             {teams.map(t => (
-              <tr key={t._id}>
+              <tr key={t.id || t._id}>
                 <td className="p-2 border-t">{t.name}</td>
                 <td className="p-2 border-t">
                   <button className="px-3 py-1 bg-red-500 text-white rounded" onClick={async () => {
-                    await apiClient.delete(`admin/teams/${t._id}`, { params: { admin: true } });
-                    setTeams(teams => teams.filter(team => team._id !== t._id));
+                    const teamId = t.id || t._id;
+                    await apiClient.delete(`admin/teams/${teamId}`, { params: { admin: true } });
+                    setTeams(teams => teams.filter(team => (team.id || team._id) !== teamId));
                   }}>Delete</button>
                 </td>
               </tr>
@@ -154,7 +157,7 @@ const AdminDashboard = () => {
           </thead>
           <tbody>
             {matches.map(match => (
-              <tr key={match._id}>
+              <tr key={match.id || match._id}>
                 <td className="p-2 border-t">{match.homeTeam}</td>
                 <td className="p-2 border-t">{match.awayTeam}</td>
                 <td className="p-2 border-t">{new Date(match.date).toLocaleString()}</td>
@@ -162,8 +165,9 @@ const AdminDashboard = () => {
                 <td className="p-2 border-t">{match.status}</td>
                 <td className="p-2 border-t">
                   <button className="px-2 py-1 bg-red-500 text-white rounded" onClick={async () => {
-                    await apiClient.delete(`match/${match._id}`);
-                    setMatches(matches => matches.filter(m => m._id !== match._id));
+                    const matchId = match.id || match._id;
+                    await apiClient.delete(`match/${matchId}`);
+                    setMatches(matches => matches.filter(m => (m.id || m._id) !== matchId));
                   }}>Delete</button>
                 </td>
               </tr>

@@ -5,6 +5,7 @@ import prisma from '../config/prisma.js';
 const router = express.Router();
 
 const serializeUser = (user) => ({
+  id: user.id,
   username: user.username,
   email: user.email,
   isAdmin: user.isAdmin,

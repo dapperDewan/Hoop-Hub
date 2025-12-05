@@ -110,6 +110,9 @@ model Merchandise {
   stock       Int?
   category    String?
   verified    Boolean?
+  ownerId     String?  @db.ObjectId
+  ownerName   String?
+  ownerEmail  String?
   createdAt   DateTime?
   updatedAt   DateTime?
 

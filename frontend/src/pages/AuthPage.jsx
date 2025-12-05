@@ -21,7 +21,7 @@ function AuthPage({ onAuthSuccess }) {
       </div>
       <div className="max-w-6xl w-full grid gap-12 lg:grid-cols-[0.95fr_1.05fr] items-center">
         <div
-          className={`rounded-3xl bg-white text-slate-900 p-6 shadow-2xl transition duration-700 ease-out motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-x-0 order-1 ${rightReveal}`}
+          className={`transition duration-700 ease-out motion-reduce:transition-none motion-reduce:opacity-100 motion-reduce:translate-x-0 order-1 ${rightReveal}`}
           style={{ transitionDelay: isMounted ? '80ms' : '0ms' }}
         >
           <AuthForms

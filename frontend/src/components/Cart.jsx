@@ -6,8 +6,10 @@ function Cart({ cart, setCart, onCheckout, onClose }) {
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const fallbackImage = "https://via.placeholder.com/80x80?text=Hoop+Hub";
 
+  const getItemId = (item) => item.id || item._id;
+
   const removeItem = (id) => {
-    setCart((prev) => prev.filter((item) => item._id !== id));
+    setCart((prev) => prev.filter((item) => getItemId(item) !== id));
   };
 
   return (
@@ -32,7 +34,7 @@ function Cart({ cart, setCart, onCheckout, onClose }) {
             <div className="text-center text-slate-400">Your cart is empty.</div>
           ) : (
             cart.map((item) => (
-              <div key={item._id} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
+              <div key={getItemId(item)} className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 p-3">
                 <img
                   src={item.image || fallbackImage}
                   alt={item.name}
@@ -48,12 +50,12 @@ function Cart({ cart, setCart, onCheckout, onClose }) {
                   <p className="text-xs text-slate-400">Qty: {item.quantity}</p>
                   <p className="text-sm text-cyan-200 font-semibold">${(item.price * item.quantity).toFixed(2)}</p>
                 </div>
-                <button onClick={() => removeItem(item._id)} className="text-red-300 hover:text-red-200" aria-label={`Remove ${item.name}`}>
+                <button onClick={() => removeItem(getItemId(item))} className="text-red-300 hover:text-red-200" aria-label={`Remove ${item.name}`}>
                   <TrashIcon className="h-5 w-5" />
                 </button>
               </div>
             ))
-          )}
+          )}}
         </div>
         <div className="border-t border-white/10 px-6 py-4 space-y-3">
           <div className="flex items-center justify-between text-sm text-slate-300">
