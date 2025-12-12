@@ -3,6 +3,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -24,6 +25,8 @@ model User {
   createdAt     DateTime?
   updatedAt     DateTime?
   dreamTeams    DreamTeam[]
+  teamOwner     TeamOwner?
+  teamOwnerApplication TeamOwnerApplication?
   v             Int?     @map("__v")
 
   @@map("users")
@@ -49,6 +52,12 @@ model Player {
   age       Int?
   stats     PlayerStats?
   image     String?
+  verified  Boolean?     @default(true)
+  price     Float?       // Price in dollars for team owners to buy
+  isAvailable Boolean?   @default(true) // Whether player is available for purchase
+  currentOwner String?  @db.ObjectId // Team Owner ID who owns the player
+  purchasedAt DateTime? // When the player was purchased
+  unavailableUntil DateTime? // When the player becomes available again
   v         Int?         @map("__v")
 
   @@map("players")
@@ -130,4 +139,57 @@ model DreamTeam {
   updatedAt DateTime?
 
   @@map("dreamteams")
+}
+
+// TeamOwner model - users who are approved to manage dream teams and buy players
+model TeamOwner {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   @unique @db.ObjectId
+  user            User     @relation(fields: [userId], references: [id])
+  teamName        String
+  initialBudget   Float    // Initial budget allocated
+  currentBudget   Float    // Remaining budget after purchases
+  approvedBy      String?  @db.ObjectId // Admin who approved
+  approvedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("teamowners")
+}
+
+// TeamOwnerApplication model - requests to become a team owner
+model TeamOwnerApplication {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId          String   @unique @db.ObjectId
+  user            User     @relation(fields: [userId], references: [id])
+  teamName        String
+  requestedBudget Float    // Budget requested by applicant
+  applicationFee  Float    // Fee paid to apply
+  paymentInfo     PaymentInfo? // Payment details
+  status          String   @default("pending") // pending, approved, rejected
+  reviewedBy      String?  @db.ObjectId // Admin who reviewed
+  reviewedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("teamownerapplications")
+}
+
+type PaymentInfo {
+  method        String   // bkash or nagad
+  phoneNumber   String   // Payment phone number
+  transactionId String   // Transaction ID
+  timestamp     String?  // Transaction timestamp
+}
+
+// PlayerTransaction model - tracks player purchase history
+model PlayerTransaction {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  playerId        String   @db.ObjectId
+  teamOwnerId     String   @db.ObjectId
+  purchasePrice   Float
+  purchasedAt     DateTime @default(now())
+  expiresAt       DateTime // When player becomes available again
+
+  @@map("playertransactions")
 }

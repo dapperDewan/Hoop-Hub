@@ -1,0 +1,14 @@
+backend/node_modules
+frontend/node_modules
+node_modules
+backend/.env
+.git
+.gitignore
+*.md
+!README.md
+backend/scripts
+.vscode
+*.log
+.DS_Store
+*.test.js
+*.spec.js

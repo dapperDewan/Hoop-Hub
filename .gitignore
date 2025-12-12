@@ -53,7 +53,7 @@ Thumbs.db
 *.ntvs*
 *.njsproj
 *.sln
-
+/docs/
 # Misc
 *.iml
 *.local

@@ -56,13 +56,15 @@ router.get('/teams', auth, async (req, res) => {
 router.put('/teams', auth, async (req, res) => {
   try {
     const favoriteTeams = req.body.favoriteTeams || [];
+    console.log('Updating favorite teams for user:', req.user.id, 'Teams:', favoriteTeams);
     await prisma.user.update({
       where: { id: req.user.id },
       data: { favoriteTeams }
     });
     res.json(favoriteTeams);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to update favorite teams.' });
+    console.error('Error updating favorite teams:', err);
+    res.status(500).json({ error: 'Failed to update favorite teams.', details: err.message });
   }
 });
 

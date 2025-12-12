@@ -7,7 +7,7 @@ import Footer from './components/Footer';
 const HomePage = lazy(() => import('./components/HomePage'));
 const PlayersPage = lazy(() => import('./components/PlayersPage'));
 const TeamsPage = lazy(() => import('./components/TeamsPage'));
-const PlayerProfile = lazy(() => import('./components/PlayerProfile'));
+
 const TeamProfile = lazy(() => import('./components/TeamProfile'));
 const ProfilePage = lazy(() => import('./components/ProfilePage'));
 const FavoritePlayersPage = lazy(() => import('./components/FavoritePlayersPage'));
@@ -19,6 +19,7 @@ const FixturesPage = lazy(() => import('./components/FixturesPage'));
 const FunFacts = lazy(() => import('./components/FunFacts'));
 const MerchandisePage = lazy(() => import('./components/MerchandisePage'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
+const TeamOwnerApplicationPage = lazy(() => import('./components/TeamOwnerApplicationPage'));
 
 const getSessionFromStorage = () => ({
   username: localStorage.getItem('username'),
@@ -93,13 +94,14 @@ function AppContent({ session, setSession, onAuthSuccess }) {
               <Route path="/" element={<HomePage isAuthenticated={Boolean(session.username)} />} />
               <Route path="/profile" element={<ProfilePage username={session.username} isAdmin={session.isAdmin} />} />
               <Route path="/players" element={<PlayersPage />} />
-              <Route path="/players/:id" element={<PlayerProfile />} />
+              
               <Route path="/teams" element={<TeamsPage />} />
               <Route path="/teams/:id" element={<TeamProfile />} />
               <Route path="/favorites" element={<FavoritePlayersPage />} />
               <Route path="/favorite-teams" element={<FavoriteTeamsPage />} />
               <Route path="/dream-team" element={<DreamTeamPage />} />
               <Route path="/view-dreamteam" element={<ViewDreamTeam />} />
+              <Route path="/team-owner-apply" element={<TeamOwnerApplicationPage />} />
               <Route path="/fixtures" element={<FixturesPage />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/merchandise" element={<MerchandisePage isAuthenticated={Boolean(session.username)} isAdmin={session.isAdmin} />} />

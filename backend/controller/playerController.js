@@ -4,7 +4,45 @@ const playerController = {
     // Get all players
     getAllPlayers: async (req, res) => {
         try {
-            const players = await prisma.player.findMany();
+            const isAdmin = req.query.admin === 'true';
+            // Check if user is a team owner (passed from auth middleware if available)
+            const isTeamOwner = req.user ? await prisma.teamOwner.findUnique({
+                where: { userId: req.user.id }
+            }) : null;
+
+            // For non-admins, show everything except explicitly unverified=false
+            const where = isAdmin ? {} : { NOT: { verified: false } };
+            let players = await prisma.player.findMany({ where });
+
+            // If user is a team owner, include ownership details
+            // If user is not a team owner, hide certain fields
+            if (!isTeamOwner && !isAdmin) {
+                // Hide ownership and price details from regular users
+                players = players.map(player => ({
+                    ...player,
+                    price: undefined,
+                    isAvailable: undefined,
+                    currentOwner: undefined,
+                    purchasedAt: undefined,
+                    unavailableUntil: undefined
+                }));
+            } else if (isTeamOwner) {
+                // For team owners, include owner info
+                const ownerIds = [...new Set(players.map(p => p.currentOwner).filter(Boolean))];
+                const owners = await prisma.teamOwner.findMany({
+                    where: { id: { in: ownerIds } },
+                    include: {
+                        user: { select: { username: true } }
+                    }
+                });
+                const ownerMap = Object.fromEntries(owners.map(o => [o.id, o]));
+                
+                players = players.map(player => ({
+                    ...player,
+                    ownerInfo: player.currentOwner ? ownerMap[player.currentOwner] : null
+                }));
+            }
+
             res.json(players);
         } catch (error) {
             res.status(500).json({ message: error.message });
@@ -29,8 +67,12 @@ const playerController = {
     // Create a new player
     createPlayer: async (req, res) => {
         try {
+            const isAdmin = req.query.admin === 'true';
             const newPlayer = await prisma.player.create({
-                data: req.body
+                data: {
+                    ...req.body,
+                    verified: isAdmin ? true : false
+                }
             });
             res.status(201).json(newPlayer);
         } catch (error) {

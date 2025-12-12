@@ -17,6 +17,7 @@ const TeamsPage = () => {
     const [error, setError] = useState('');
     const username = localStorage.getItem('username');
     const [favoriteTeams, setFavoriteTeams] = useState([]);
+    const [savingTeamId, setSavingTeamId] = useState(null); // Track which specific team is being saved
 
     useEffect(() => {
         let isMounted = true;
@@ -46,7 +47,8 @@ const TeamsPage = () => {
         async function fetchFavoriteTeams() {
             try {
                 const res = await apiClient.get('favorites/teams');
-                const ids = Array.isArray(res.data) ? res.data.map((team) => team._id || team) : [];
+                // Prisma returns 'id', not '_id'
+                const ids = Array.isArray(res.data) ? res.data.map((team) => team.id || team) : [];
                 setFavoriteTeams(ids.map((id) => String(id)));
             } catch {
                 setFavoriteTeams([]);
@@ -55,17 +57,35 @@ const TeamsPage = () => {
         fetchFavoriteTeams();
     }, [username]);
 
-    const handleFavorite = async (id) => {
-        if (!username) return;
+    const handleFavorite = async (e, id) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
         const strId = String(id);
-        const updated = favoriteTeams.includes(strId)
+        
+        // Prevent action if not logged in or already saving this team
+        if (!username || savingTeamId === strId) return;
+        
+        const isCurrentlyFavorite = favoriteTeams.includes(strId);
+        const updated = isCurrentlyFavorite
             ? favoriteTeams.filter((teamId) => teamId !== strId)
             : [...favoriteTeams, strId];
+        
+        // Store previous state for rollback
+        const previousFavorites = [...favoriteTeams];
+        
+        // Optimistic UI update
         setFavoriteTeams(updated);
+        setSavingTeamId(strId);
+        
         try {
             await apiClient.put('favorites/teams', { favoriteTeams: updated });
-        } catch {
-            // keeping optimistic UI
+        } catch (err) {
+            // Revert on error
+            console.error('Failed to update favorites:', err);
+            setFavoriteTeams(previousFavorites);
+        } finally {
+            setSavingTeamId(null);
         }
     };
 
@@ -164,9 +184,10 @@ const TeamsPage = () => {
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {teams.map((team) => {
-                            const favorite = favoriteTeams.includes(String(team._id));
+                            const teamId = team.id || team._id; // Support both Prisma (id) and Mongoose (_id)
+                            const favorite = favoriteTeams.includes(String(teamId));
                             return (
-                                <article key={team._id} className="group rounded-3xl border border-white/10 bg-white/5 p-6 flex flex-col gap-4 shadow-lg shadow-purple-900/20">
+                                <article key={teamId} className="group rounded-3xl border border-white/10 bg-white/5 p-6 flex flex-col gap-4 shadow-lg shadow-purple-900/20">
                                     <div className="flex items-center gap-4">
                                         {team.logo ? (
                                             <img
@@ -198,10 +219,11 @@ const TeamsPage = () => {
                                         </div>
                                     </div>
                                     <button
-                                        className={`rounded-full px-4 py-2 text-xs font-semibold transition ${favorite ? 'bg-amber-400/20 text-amber-200' : 'bg-white/10 text-white'}`}
-                                        onClick={() => handleFavorite(team._id)}
+                                        className={`rounded-full px-4 py-2 text-xs font-semibold transition ${favorite ? 'bg-amber-400/20 text-amber-200' : 'bg-white/10 text-white'} ${savingTeamId === String(teamId) ? 'opacity-50 cursor-wait' : ''}`}
+                                        onClick={(e) => handleFavorite(e, teamId)}
+                                        disabled={savingTeamId === String(teamId)}
                                     >
-                                        {favorite ? 'Favorited' : 'Add to favorites'}
+                                        {savingTeamId === String(teamId) ? 'Saving...' : favorite ? 'Favorited' : 'Add to favorites'}
                                     </button>
                                 </article>
                             );

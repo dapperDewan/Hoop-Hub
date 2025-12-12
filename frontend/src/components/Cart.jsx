@@ -55,7 +55,7 @@ function Cart({ cart, setCart, onCheckout, onClose }) {
                 </button>
               </div>
             ))
-          )}}
+          )}
         </div>
         <div className="border-t border-white/10 px-6 py-4 space-y-3">
           <div className="flex items-center justify-between text-sm text-slate-300">

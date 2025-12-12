@@ -47,6 +47,21 @@ router.delete('/admin/players/:id', requireAdmin, async (req, res) => {
   }
 });
 
+router.post('/admin/players/:id/verify', requireAdmin, async (req, res) => {
+  try {
+    const updated = await prisma.player.update({
+      where: { id: req.params.id },
+      data: { verified: true }
+    });
+    res.json(updated);
+  } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ message: 'Player not found' });
+    }
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.delete('/admin/teams/:id', requireAdmin, async (req, res) => {
   try {
     await prisma.team.delete({

@@ -4,6 +4,7 @@ import Bars3Icon from '@heroicons/react/24/outline/Bars3Icon';
 import XMarkIcon from '@heroicons/react/24/outline/XMarkIcon';
 import ShieldCheckIcon from '@heroicons/react/24/outline/ShieldCheckIcon';
 import ChevronDownIcon from '@heroicons/react/24/outline/ChevronDownIcon';
+import apiClient from '../services/api';
 
 const baseLinks = [
   { to: '/', label: 'Home' },
@@ -17,10 +18,14 @@ const guestHighlights = [
   { to: '/fun-facts', label: 'Fun Facts' }
 ];
 
-const memberLinks = [
+const baseMemberLinks = [
   { to: '/profile', label: 'Profile hub' },
   { to: '/favorites', label: 'Favorite players' },
   { to: '/favorite-teams', label: 'Favorite teams' },
+  { to: '/team-owner-apply', label: 'Team Owner' }
+];
+
+const teamOwnerLinks = [
   { to: '/dream-team', label: 'Dream Team' },
   { to: '/view-dreamteam', label: 'Community teams' }
 ];
@@ -57,7 +62,24 @@ function Navbar({ isAuthenticated, isAdmin, username = 'Hooper', onLogout }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [isTeamOwner, setIsTeamOwner] = useState(false);
   const userMenuRef = useRef(null);
+
+  useEffect(() => {
+    const fetchTeamOwner = async () => {
+      if (!isAuthenticated || isAdmin) {
+        setIsTeamOwner(false);
+        return;
+      }
+      try {
+        const res = await apiClient.get('team-owner/my-profile');
+        setIsTeamOwner(!!res.data.teamOwner);
+      } catch (err) {
+        setIsTeamOwner(false);
+      }
+    };
+    fetchTeamOwner();
+  }, [isAuthenticated, isAdmin]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -91,6 +113,12 @@ function Navbar({ isAuthenticated, isAdmin, username = 'Hooper', onLogout }) {
   const closeMobile = () => setMobileOpen(false);
 
   const primaryLinks = [...baseLinks, ...(isAuthenticated ? [] : guestHighlights)];
+  
+  // Build member links dynamically based on team owner status
+  const memberLinks = isAuthenticated
+    ? [...baseMemberLinks, ...(isTeamOwner || isAdmin ? teamOwnerLinks : [])]
+    : [];
+  
   const dropdownLinks = isAuthenticated
     ? [...memberLinks, ...(isAdmin ? [{ to: '/admin', label: 'Admin tools' }] : [])]
     : [];
