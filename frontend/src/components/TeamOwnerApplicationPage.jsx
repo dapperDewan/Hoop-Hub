@@ -7,6 +7,7 @@ const FIXED_APPLICATION_FEE = 50000; // Fixed fee: BDT 50,000
 const TeamOwnerApplicationPage = () => {
   const [teamOwner, setTeamOwner] = useState(null);
   const [application, setApplication] = useState(null);
+  const [merchandiseSales, setMerchandiseSales] = useState([]);
   const [formData, setFormData] = useState({
     teamName: '',
     requestedBudget: '10000000'
@@ -18,6 +19,7 @@ const TeamOwnerApplicationPage = () => {
     timestamp: ''
   });
   const [showPayment, setShowPayment] = useState(false);
+  const [showSales, setShowSales] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -43,6 +45,16 @@ const TeamOwnerApplicationPage = () => {
       
       setTeamOwner(profileRes.data.teamOwner);
       setApplication(appRes.data.application);
+      
+      // Fetch merchandise sales if team owner
+      if (profileRes.data.teamOwner) {
+        try {
+          const salesRes = await apiClient.get('merchandise/orders/owner');
+          setMerchandiseSales(salesRes.data || []);
+        } catch {
+          // Sales fetch failed, might not have any
+        }
+      }
     } catch (err) {
       setError('Failed to load data');
     } finally {
@@ -131,12 +143,96 @@ const TeamOwnerApplicationPage = () => {
               <p className="font-bold text-lg">{new Date(teamOwner.approvedAt).toLocaleDateString()}</p>
             </div>
           </div>
-          <button
-            onClick={() => navigate('/dream-team')}
-            className="bg-white text-indigo-600 px-8 py-3 rounded-lg hover:bg-indigo-50 font-semibold shadow-lg transition-all hover:scale-105"
-          >
-            Manage My Dream Team →
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => navigate('/dream-team')}
+              className="bg-white text-indigo-600 px-8 py-3 rounded-lg hover:bg-indigo-50 font-semibold shadow-lg transition-all hover:scale-105"
+            >
+              Manage My Dream Team →
+            </button>
+            <button
+              onClick={() => navigate('/merchandise')}
+              className="bg-white/20 text-white px-8 py-3 rounded-lg hover:bg-white/30 font-semibold shadow-lg transition-all hover:scale-105 border border-white/30"
+            >
+              List Products →
+            </button>
+            {merchandiseSales.length > 0 && (
+              <button
+                onClick={() => setShowSales(!showSales)}
+                className="bg-emerald-500 text-white px-8 py-3 rounded-lg hover:bg-emerald-600 font-semibold shadow-lg transition-all hover:scale-105"
+              >
+                View Sales ({merchandiseSales.length}) →
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Merchandise Sales Section (for team owners) */}
+      {teamOwner && showSales && merchandiseSales.length > 0 && (
+        <div className="bg-slate-800 rounded-2xl shadow-xl p-6 mb-8 border border-slate-700">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-white">Your Merchandise Sales</h2>
+              <p className="text-sm text-slate-400">Approved orders from your products</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-slate-400">Total Earnings</p>
+              <p className="text-2xl font-bold text-emerald-400">
+                ${merchandiseSales.reduce((sum, o) => sum + (o.totalAmount || 0), 0).toLocaleString()}
+              </p>
+            </div>
+          </div>
+          
+          <div className="space-y-4 max-h-[400px] overflow-y-auto">
+            {merchandiseSales.map(order => (
+              <div key={order.id || order._id} className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-lg font-bold text-white">${order.totalAmount?.toFixed(2)}</span>
+                      <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/20 text-emerald-200">
+                        Paid
+                      </span>
+                    </div>
+                    
+                    {/* Buyer Info */}
+                    <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                      <div>
+                        <span className="text-slate-400">Buyer: </span>
+                        <span className="text-white">{order.buyerName}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Email: </span>
+                        <span className="text-white">{order.buyerEmail || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Phone: </span>
+                        <span className="text-white">{order.buyerPhone || 'N/A'}</span>
+                      </div>
+                      <div>
+                        <span className="text-slate-400">Date: </span>
+                        <span className="text-white">{new Date(order.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Items Purchased */}
+                    <div className="rounded-lg bg-slate-800/50 p-3">
+                      <p className="text-xs uppercase tracking-wider text-slate-400 mb-2">Items Purchased</p>
+                      <div className="space-y-1">
+                        {order.items?.map((item, idx) => (
+                          <div key={idx} className="flex justify-between text-sm">
+                            <span className="text-slate-300">{item.name} × {item.quantity}</span>
+                            <span className="text-white">${(item.price * item.quantity).toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

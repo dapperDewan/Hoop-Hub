@@ -8,6 +8,7 @@ const AdminDashboard = () => {
   const [teams, setTeams] = useState([]);
   const [matches, setMatches] = useState([]);
   const [applications, setApplications] = useState([]);
+  const [merchandiseOrders, setMerchandiseOrders] = useState([]);
   const [matchForm, setMatchForm] = useState({ homeTeam: '', awayTeam: '', date: '', venue: '' });
   const [matchError, setMatchError] = useState('');
   const [loading, setLoading] = useState(true);
@@ -22,18 +23,20 @@ const AdminDashboard = () => {
     if (!username || !isAdmin) return;
     const fetchAll = async () => {
       try {
-        const [usersRes, playersRes, teamsRes, matchesRes, applicationsRes] = await Promise.all([
+        const [usersRes, playersRes, teamsRes, matchesRes, applicationsRes, ordersRes] = await Promise.all([
           apiClient.get('admin/users', { params: { admin: true } }),
           apiClient.get('players'),
           apiClient.get('teams'),
           apiClient.get('match'),
           apiClient.get('team-owner/applications'),
+          apiClient.get('merchandise/orders'),
         ]);
         setUsers(usersRes.data);
         setPlayers(playersRes.data);
         setTeams(teamsRes.data);
         setMatches(matchesRes.data);
         setApplications(applicationsRes.data);
+        setMerchandiseOrders(ordersRes.data || []);
         setLoading(false);
       } catch (err) {
         setError('Failed to fetch admin data.');
@@ -44,6 +47,7 @@ const AdminDashboard = () => {
   }, [username, isAdmin]);
 
   const pendingApplications = applications.filter(app => app.status === 'pending');
+  const pendingOrders = merchandiseOrders.filter(order => order.status === 'pending');
 
   if (!username || !isAdmin) {
     return (
@@ -135,6 +139,15 @@ const AdminDashboard = () => {
       subtitle: 'scheduled matches',
       gradient: 'from-emerald-600/30 to-teal-600/30',
       borderColor: 'border-emerald-500/30',
+    },
+    {
+      id: 'orders',
+      icon: '🛒',
+      title: 'Merchandise Orders',
+      count: pendingOrders.length,
+      subtitle: 'pending orders',
+      gradient: 'from-rose-600/30 to-pink-600/30',
+      borderColor: 'border-rose-500/30',
     },
   ];
 
@@ -547,6 +560,179 @@ const AdminDashboard = () => {
                       >
                         Delete
                       </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Merchandise Orders Modal */}
+      {activeModal === 'orders' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 overflow-y-auto py-8" onClick={() => setActiveModal(null)}>
+          <div 
+            className="w-full max-w-4xl rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl my-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold">Merchandise Orders</h2>
+                <p className="text-sm text-slate-400 mt-1">Review and approve customer purchases</p>
+              </div>
+              <button onClick={() => setActiveModal(null)} className="rounded-full p-2 hover:bg-white/10 transition">
+                <span className="text-2xl">×</span>
+              </button>
+            </div>
+
+            {/* Pending Orders */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-amber-400 mb-4">Pending Orders ({pendingOrders.length})</h3>
+              {pendingOrders.length === 0 ? (
+                <div className="text-center text-slate-400 py-8 rounded-xl border border-white/10 bg-white/5">
+                  No pending orders to review
+                </div>
+              ) : (
+                <div className="space-y-4 max-h-[40vh] overflow-y-auto">
+                  {pendingOrders.map(order => (
+                    <div key={order.id || order._id} className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="text-lg font-bold text-white">${order.totalAmount?.toFixed(2)}</span>
+                            <span className="px-2 py-0.5 rounded-full text-xs bg-amber-500/20 text-amber-200">Pending</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+                            <div>
+                              <span className="text-slate-400">Buyer: </span>
+                              <span className="text-white">{order.buyerName}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">Email: </span>
+                              <span className="text-white">{order.buyerEmail || 'N/A'}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">Phone: </span>
+                              <span className="text-white">{order.buyerPhone || 'N/A'}</span>
+                            </div>
+                            <div>
+                              <span className="text-slate-400">Seller: </span>
+                              <span className="text-white">{order.ownerName || 'N/A'}</span>
+                            </div>
+                          </div>
+                          
+                          {/* Payment Info */}
+                          <div className="rounded-lg bg-slate-800/50 p-3 mb-3">
+                            <p className="text-xs uppercase tracking-wider text-slate-400 mb-2">Payment Info</p>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              <div>
+                                <span className="text-slate-400">Method: </span>
+                                <span className={`font-semibold ${order.paymentInfo?.method === 'bkash' ? 'text-pink-400' : 'text-orange-400'}`}>
+                                  {order.paymentInfo?.method?.toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-slate-400">Phone: </span>
+                                <span className="text-white">{order.paymentInfo?.phoneNumber}</span>
+                              </div>
+                              <div className="col-span-2">
+                                <span className="text-slate-400">Transaction ID: </span>
+                                <span className="text-cyan-300 font-mono">{order.paymentInfo?.transactionId}</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Items */}
+                          <div className="text-sm">
+                            <p className="text-xs uppercase tracking-wider text-slate-400 mb-2">Items</p>
+                            <div className="space-y-1">
+                              {order.items?.map((item, idx) => (
+                                <div key={idx} className="flex justify-between text-slate-300">
+                                  <span>{item.name} × {item.quantity}</span>
+                                  <span>${(item.price * item.quantity).toFixed(2)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          
+                          <p className="text-xs text-slate-500 mt-2">
+                            Ordered: {new Date(order.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <button 
+                            className="rounded-full bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 transition"
+                            onClick={async () => {
+                              if (!confirm('Approve this order? Amount will be added to seller balance.')) return;
+                              const orderId = order.id || order._id;
+                              try {
+                                await apiClient.post(`merchandise/orders/${orderId}/approve`);
+                                setMerchandiseOrders(orders => orders.map(o => 
+                                  (o.id || o._id) === orderId ? { ...o, status: 'approved' } : o
+                                ));
+                              } catch (err) {
+                                alert('Failed to approve order');
+                              }
+                            }}
+                          >
+                            Approve
+                          </button>
+                          <button 
+                            className="rounded-full bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-200 hover:bg-red-500/30 transition"
+                            onClick={async () => {
+                              if (!confirm('Reject this order? Stock will be restored.')) return;
+                              const orderId = order.id || order._id;
+                              try {
+                                await apiClient.post(`merchandise/orders/${orderId}/reject`);
+                                setMerchandiseOrders(orders => orders.map(o => 
+                                  (o.id || o._id) === orderId ? { ...o, status: 'rejected' } : o
+                                ));
+                              } catch (err) {
+                                alert('Failed to reject order');
+                              }
+                            }}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* All Orders History */}
+            <div>
+              <h3 className="text-lg font-semibold text-slate-300 mb-4">Order History ({merchandiseOrders.length - pendingOrders.length})</h3>
+              <div className="space-y-3 max-h-[30vh] overflow-y-auto">
+                {merchandiseOrders.filter(o => o.status !== 'pending').map(order => (
+                  <div key={order.id || order._id} className={`rounded-xl border p-4 ${
+                    order.status === 'approved' 
+                      ? 'border-emerald-500/30 bg-emerald-500/10' 
+                      : 'border-red-500/30 bg-red-500/10'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-bold text-white">${order.totalAmount?.toFixed(2)}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-xs ${
+                            order.status === 'approved' 
+                              ? 'bg-emerald-500/20 text-emerald-200' 
+                              : 'bg-red-500/20 text-red-200'
+                          }`}>
+                            {order.status?.toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="text-sm text-slate-400 mt-1">
+                          <span>Buyer: {order.buyerName}</span>
+                          <span className="mx-2">•</span>
+                          <span>{order.items?.length} item(s)</span>
+                          <span className="mx-2">•</span>
+                          <span>{new Date(order.createdAt).toLocaleDateString()}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}

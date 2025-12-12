@@ -193,3 +193,32 @@ model PlayerTransaction {
 
   @@map("playertransactions")
 }
+
+// MerchandiseOrder model - tracks merchandise purchases
+model MerchandiseOrder {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  buyerId         String   @db.ObjectId // User who purchased
+  buyerName       String
+  buyerEmail      String?
+  buyerPhone      String?
+  items           OrderItem[]
+  totalAmount     Float
+  paymentInfo     PaymentInfo
+  status          String   @default("pending") // pending, approved, rejected
+  ownerId         String?  @db.ObjectId // Team owner who listed the products
+  ownerName       String?
+  reviewedBy      String?  @db.ObjectId // Admin who reviewed
+  reviewedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("merchandiseorders")
+}
+
+type OrderItem {
+  merchandiseId   String   @db.ObjectId
+  name            String
+  price           Float
+  quantity        Int
+  image           String?
+}

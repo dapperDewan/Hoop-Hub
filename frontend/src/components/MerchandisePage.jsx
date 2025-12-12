@@ -18,6 +18,7 @@ function MerchandisePage({ isAuthenticated = false, isAdmin = false }) {
   const [showCart, setShowCart] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
+  const [isTeamOwner, setIsTeamOwner] = useState(false);
   const [form, setForm] = useState({
     name: "",
     description: "",
@@ -41,6 +42,13 @@ function MerchandisePage({ isAuthenticated = false, isAdmin = false }) {
     stock: "",
     category: ""
   });
+  // Orders state for buyer and seller views
+  const [buyerOrders, setBuyerOrders] = useState([]);
+  const [sellerOrders, setSellerOrders] = useState([]);
+  const [showBuyerOrders, setShowBuyerOrders] = useState(false);
+  const [showSellerOrders, setShowSellerOrders] = useState(false);
+  const [loadingBuyerOrders, setLoadingBuyerOrders] = useState(false);
+  const [loadingSellerOrders, setLoadingSellerOrders] = useState(false);
 
   const placeholderImage = "https://images.unsplash.com/photo-1519861531473-9200262188bf?auto=format&fit=crop&w=600&q=80";
   const basketballImg = "https://images.pexels.com/photos/1752757/pexels-photo-1752757.jpeg";
@@ -87,6 +95,17 @@ function MerchandisePage({ isAuthenticated = false, isAdmin = false }) {
             }
           } catch {
             // Profile fetch failed, user may need to complete profile
+          }
+          
+          // Check if user is a team owner
+          try {
+            const teamOwnerRes = await apiClient.get("team-owner/my-profile");
+            if (active && teamOwnerRes.data?.teamOwner) {
+              setIsTeamOwner(true);
+            }
+          } catch {
+            // Not a team owner
+            setIsTeamOwner(false);
           }
         }
       } catch {
@@ -190,24 +209,47 @@ function MerchandisePage({ isAuthenticated = false, isAdmin = false }) {
     announceStatus('success', `${item.name} added to cart.`);
   };
 
-  const handleCheckout = async () => {
-    let success = true;
-    for (const cartItem of cart) {
-      for (let i = 0; i < cartItem.quantity; i++) {
-        try {
-          await apiClient.post(`merchandise/${getItemId(cartItem)}/buy`);
-        } catch {
-          success = false;
-        }
-      }
+  // Fetch buyer orders
+  const fetchBuyerOrders = async () => {
+    try {
+      setLoadingBuyerOrders(true);
+      const res = await apiClient.get('/merchandise/orders/my');
+      setBuyerOrders(res.data.orders || res.data || []);
+    } catch (err) {
+      console.error('fetchBuyerOrders', err);
+      announceStatus('error', 'Failed to load your purchases');
+    } finally {
+      setLoadingBuyerOrders(false);
     }
-    if (success) {
-      announceStatus('success', 'Purchase successful!');
+  };
+
+  // Fetch seller (owner) orders
+  const fetchSellerOrders = async () => {
+    try {
+      setLoadingSellerOrders(true);
+      const res = await apiClient.get('/merchandise/orders/owner');
+      setSellerOrders(res.data.orders || res.data || []);
+    } catch (err) {
+      console.error('fetchSellerOrders', err);
+      announceStatus('error', 'Failed to load your sales');
+    } finally {
+      setLoadingSellerOrders(false);
+    }
+  };
+
+  const handleCheckout = async (checkoutData) => {
+    try {
+      const response = await apiClient.post('merchandise/checkout', checkoutData);
+      announceStatus('success', response.data.message || 'Order placed! Awaiting admin approval.');
       setCart([]);
       const { data } = await apiClient.get("merchandise");
       setItems(Array.isArray(data) ? data : []);
-    } else {
-      announceStatus('error', 'Some items could not be purchased.');
+      if (showBuyerOrders) fetchBuyerOrders();
+      if (showSellerOrders) fetchSellerOrders();
+    } catch (err) {
+      const errorMessage = err.response?.data?.error || 'Checkout failed. Please try again.';
+      announceStatus('error', errorMessage);
+      throw new Error(errorMessage);
     }
   };
 
@@ -285,7 +327,7 @@ function MerchandisePage({ isAuthenticated = false, isAdmin = false }) {
             <h1 className="text-4xl font-bold leading-tight">Deck out your hoops life without leaving Hoop Hub.</h1>
             <p className="text-slate-200 max-w-2xl">
               Browse verified drops, add them to your cart, and check out with the same calm flow that powers the rest of Hoop Hub.
-              {isAuthenticated && " List your own products and get them verified by our team."}
+              {(isAdmin || isTeamOwner) && " As a team owner, you can list your own products and get them verified by our team."}
             </p>
           </div>
           <div className="mt-6 flex flex-wrap gap-3">
@@ -298,6 +340,22 @@ function MerchandisePage({ isAuthenticated = false, isAdmin = false }) {
             </button>
             {isAuthenticated && (
               <button
+                className={`inline-flex items-center gap-2 rounded-full border border-white/30 px-5 py-2 text-sm font-semibold text-white hover:bg-white/10 transition ${showBuyerOrders ? 'bg-indigo-500 text-white shadow-lg' : ''}`}
+                onClick={() => { const next = !showBuyerOrders; setShowBuyerOrders(next); if (next) fetchBuyerOrders(); }}
+              >
+                My Purchases
+              </button>
+            )}
+            {isTeamOwner && (
+              <button
+                className={`inline-flex items-center gap-2 rounded-full border border-white/30 px-5 py-2 text-sm font-semibold text-white hover:bg-white/10 transition ${showSellerOrders ? 'bg-indigo-500 text-white shadow-lg' : ''}`}
+                onClick={() => { const next = !showSellerOrders; setShowSellerOrders(next); if (next) fetchSellerOrders(); }}
+              >
+                My Sales
+              </button>
+            )}
+            {(isAdmin || isTeamOwner) && (
+              <button
                 className="inline-flex items-center gap-2 rounded-full border border-white/30 px-5 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
                 onClick={() => setShowForm((prev) => !prev)}
               >
@@ -305,7 +363,7 @@ function MerchandisePage({ isAuthenticated = false, isAdmin = false }) {
                 {showForm ? 'Close form' : 'List a product'}
               </button>
             )}
-            {isAuthenticated && userProfile && (
+            {(isAdmin || isTeamOwner) && userProfile && (
               <button
                 className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition ${
                   showMyListings 
@@ -323,7 +381,7 @@ function MerchandisePage({ isAuthenticated = false, isAdmin = false }) {
                 className="inline-flex items-center gap-2 rounded-full border border-white/30 px-5 py-2 text-sm font-semibold text-white hover:bg-white/10 transition"
                 onClick={() => navigate('/auth')}
               >
-                Sign in to sell
+                Sign in to shop
               </button>
             )}
           </div>
@@ -343,8 +401,8 @@ function MerchandisePage({ isAuthenticated = false, isAdmin = false }) {
           </div>
         </section>
 
-        {/* List Product Form - Available to all authenticated users */}
-        {showForm && isAuthenticated && (
+        {/* List Product Form - Available to team owners and admins only */}
+        {showForm && (isAdmin || isTeamOwner) && (
           <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900/95 via-indigo-950/80 to-slate-900/95 p-8 shadow-2xl">
             <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-indigo-500/10 blur-3xl" />
             <div className="absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-purple-500/10 blur-3xl" />
@@ -670,6 +728,7 @@ function MerchandisePage({ isAuthenticated = false, isAdmin = false }) {
           setCart={setCart}
           onCheckout={handleCheckout}
           onClose={() => setShowCart(false)}
+          isAuthenticated={isAuthenticated}
         />
       )}
 
@@ -722,6 +781,108 @@ function MerchandisePage({ isAuthenticated = false, isAdmin = false }) {
               </div>
             ) : (
               <p className="text-slate-400">No seller information available.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Buyer Orders Modal */}
+      {showBuyerOrders && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl">
+            <button
+              onClick={() => setShowBuyerOrders(false)}
+              className="absolute top-4 right-4 rounded-full p-2 hover:bg-white/10 transition"
+            >
+              <XMarkIcon className="h-5 w-5 text-slate-400" />
+            </button>
+            <h3 className="text-xl font-bold text-white mb-4">My Purchases</h3>
+            {loadingBuyerOrders ? (
+              <p className="text-slate-400">Loading...</p>
+            ) : buyerOrders.length === 0 ? (
+              <p className="text-slate-400">No purchases yet.</p>
+            ) : (
+              <div className="space-y-4 max-h-96 overflow-auto">
+                {buyerOrders.map((order) => (
+                  <div key={order.id || order._id} className="rounded-xl border border-white/10 p-4 bg-white/5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-slate-400">Order</p>
+                        <p className="text-white font-semibold">{order.id || order._id}</p>
+                      </div>
+                      <div className="text-sm">
+                        <p className={`px-3 py-1 rounded-full text-xs ${order.status === 'approved' ? 'bg-emerald-500/20 text-emerald-300' : order.status === 'rejected' ? 'bg-red-500/20 text-red-300' : 'bg-amber-500/20 text-amber-300'}`}>{order.status || 'pending'}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-sm text-slate-300">
+                      <p>Placed: {order.createdAt ? new Date(order.createdAt).toLocaleString() : ''}</p>
+                      {order.paymentInfo && (
+                        <p>Payment: {order.paymentInfo.method || order.paymentInfo.type} • {order.paymentInfo.txnId || order.paymentInfo.transactionId}</p>
+                      )}
+                      <p className="mt-2 font-semibold">Items:</p>
+                      <ul className="mt-1 list-disc list-inside text-slate-300">
+                        {(order.items || []).map((it, idx) => (
+                          <li key={idx}>{it.name} × {it.quantity || it.qty} — ${Number(it.price).toFixed(2)}</li>
+                        ))}
+                      </ul>
+                      <p className="mt-2 text-white font-semibold">Total: ${Number(order.totalAmount || order.total || 0).toFixed(2)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Seller Orders Modal */}
+      {showSellerOrders && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-2xl rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl">
+            <button
+              onClick={() => setShowSellerOrders(false)}
+              className="absolute top-4 right-4 rounded-full p-2 hover:bg-white/10 transition"
+            >
+              <XMarkIcon className="h-5 w-5 text-slate-400" />
+            </button>
+            <h3 className="text-xl font-bold text-white mb-4">My Sales</h3>
+            {loadingSellerOrders ? (
+              <p className="text-slate-400">Loading...</p>
+            ) : sellerOrders.length === 0 ? (
+              <p className="text-slate-400">No sales yet.</p>
+            ) : (
+              <div className="space-y-4 max-h-96 overflow-auto">
+                {sellerOrders.map((order) => (
+                  <div key={order.id || order._id} className="rounded-xl border border-white/10 p-4 bg-white/5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm text-slate-400">Order</p>
+                        <p className="text-white font-semibold">{order.id || order._id}</p>
+                      </div>
+                      <div className="text-sm">
+                        <p className={`px-3 py-1 rounded-full text-xs ${order.status === 'approved' ? 'bg-emerald-500/20 text-emerald-300' : order.status === 'rejected' ? 'bg-red-500/20 text-red-300' : 'bg-amber-500/20 text-amber-300'}`}>{order.status || 'pending'}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-sm text-slate-300">
+                      <p>Placed: {order.createdAt ? new Date(order.createdAt).toLocaleString() : ''}</p>
+                      <p>Buyer: {order.buyerName || order.buyerEmail || order.buyerId}</p>
+                      <p className="mt-2 font-semibold">Items:</p>
+                      <ul className="mt-1 list-disc list-inside text-slate-300">
+                        {(order.items || []).map((it, idx) => (
+                          <li key={idx}>{it.name} × {it.quantity || it.qty} — ${Number(it.price).toFixed(2)}</li>
+                        ))}
+                      </ul>
+                      <p className="mt-2 text-white font-semibold">Total: ${Number(order.totalAmount || order.total || 0).toFixed(2)}</p>
+                      {order.paymentInfo && (
+                        <div className="mt-2 text-sm text-slate-300">
+                          <p>Payment method: {order.paymentInfo.method || order.paymentInfo.type}</p>
+                          <p>Transaction: {order.paymentInfo.txnId || order.paymentInfo.transactionId}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </div>
