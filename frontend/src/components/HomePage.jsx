@@ -222,6 +222,8 @@ function HomePage({ isAuthenticated }) {
     const [heroReady, setHeroReady] = useState(prefersReducedMotion);
     const [featuredPlayers, setFeaturedPlayers] = useState(fallbackFeaturedPlayers);
     const [playersLoading, setPlayersLoading] = useState(false);
+    const [latestBlogs, setLatestBlogs] = useState([]);
+    const [blogsLoading, setBlogsLoading] = useState(false);
     const [activeNavIndex, setActiveNavIndex] = useState(0);
     const isMobile = useIsMobile();
     const displayedFeaturePromises = isMobile ? featurePromises.slice(0, 4) : featurePromises;
@@ -283,6 +285,31 @@ function HomePage({ isAuthenticated }) {
             .finally(() => {
                 if (isMounted) {
                     setPlayersLoading(false);
+                }
+            });
+        return () => {
+            isMounted = false;
+        };
+    }, []);
+
+    // Fetch latest blogs
+    useEffect(() => {
+        let isMounted = true;
+        setBlogsLoading(true);
+        apiClient
+            .get('blog/latest?limit=3')
+            .then(({ data }) => {
+                if (!isMounted || !Array.isArray(data)) return;
+                setLatestBlogs(data);
+            })
+            .catch(() => {
+                if (isMounted) {
+                    setLatestBlogs([]);
+                }
+            })
+            .finally(() => {
+                if (isMounted) {
+                    setBlogsLoading(false);
                 }
             });
         return () => {
@@ -476,6 +503,70 @@ function HomePage({ isAuthenticated }) {
                         )}
                     </div>
                 </MotionSection>
+
+                {/* Latest Blog Posts Section */}
+                {latestBlogs.length > 0 && (
+                    <MotionSection delay={0.09}>
+                        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-800 p-8 space-y-6">
+                            <header className="flex flex-col gap-3 text-center">
+                                <p className="text-xs uppercase tracking-[0.4em] text-cyan-200">Latest News</p>
+                                <h2 className="text-3xl font-semibold">From the Hoop Hub Blog</h2>
+                                <p className="text-slate-300 max-w-3xl mx-auto">
+                                    Stay updated with the latest stories, insights, and news from the basketball world.
+                                </p>
+                            </header>
+                            {blogsLoading ? (
+                                <p className="text-center text-slate-400">Loading blog posts…</p>
+                            ) : (
+                                <div className="grid gap-4 md:grid-cols-3">
+                                    {latestBlogs.map((blog) => {
+                                        // Get the first image from CSV for background
+                                        const firstImage = blog.imageUrl ? blog.imageUrl.split(',')[0].trim() : null;
+                                        return (
+                                            <Link 
+                                                key={blog.id || blog._id} 
+                                                to={`/blog/${blog.id || blog._id}`}
+                                                className="group relative rounded-2xl border border-white/10 overflow-hidden hover:scale-[1.02] transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/20"
+                                            >
+                                                {/* Background Image with Overlay */}
+                                                <div className="absolute inset-0">
+                                                    {firstImage ? (
+                                                        <img 
+                                                            src={firstImage} 
+                                                            alt="" 
+                                                            className="w-full h-full object-cover opacity-40 group-hover:opacity-50 group-hover:scale-110 transition-all duration-500"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-full h-full bg-gradient-to-br from-indigo-600/30 to-purple-600/30" />
+                                                    )}
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent" />
+                                                </div>
+                                                
+                                                {/* Content */}
+                                                <div className="relative p-6 min-h-[180px] flex flex-col justify-end">
+                                                    <h3 className="text-lg font-semibold text-white group-hover:text-cyan-300 transition-colors drop-shadow-lg">
+                                                        {blog.title}
+                                                    </h3>
+                                                    <p className="text-xs text-slate-300 mt-2">
+                                                        {new Date(blog.createdAt).toLocaleDateString('en-US', {
+                                                            year: 'numeric',
+                                                            month: 'long',
+                                                            day: 'numeric'
+                                                        })}
+                                                    </p>
+                                                    <p className="text-sm text-cyan-400 mt-3 group-hover:text-cyan-300 flex items-center gap-1">
+                                                        Read more 
+                                                        <span className="group-hover:translate-x-1 transition-transform">→</span>
+                                                    </p>
+                                                </div>
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </MotionSection>
+                )}
 
                 <MotionSection delay={0.1}>
                     <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-800 p-8 space-y-6">

@@ -9,7 +9,8 @@ const checkTeamOwner = async (userId) => {
 };
 
 // Helper: Calculate player availability
-const checkPlayerAvailability = async (playerId) => {
+// teamOwnerId is optional - if provided, allows players already owned by this team owner
+const checkPlayerAvailability = async (playerId, teamOwnerId = null) => {
   const player = await prisma.player.findUnique({
     where: { id: playerId }
   });
@@ -22,6 +23,10 @@ const checkPlayerAvailability = async (playerId) => {
 
   // Check if player is currently unavailable
   if (player.unavailableUntil && new Date(player.unavailableUntil) > new Date()) {
+    // If the player is owned by the same team owner, they can still include them
+    if (teamOwnerId && player.currentOwner === teamOwnerId) {
+      return { available: true, player, alreadyOwned: true };
+    }
     return { 
       available: false, 
       reason: 'Player is currently unavailable',
@@ -30,7 +35,7 @@ const checkPlayerAvailability = async (playerId) => {
     };
   }
 
-  return { available: true, player };
+  return { available: true, player, alreadyOwned: false };
 };
 
 // Admin: Delete any user's dream team
@@ -146,14 +151,23 @@ export const updateMyDreamTeam = async (req, res) => {
       return res.status(400).json({ error: 'You can only add up to 10 players in your dream team.' });
     }
 
-    // Validate all players and calculate total cost
+    // Get existing dream team to know which players are already owned
+    let dreamTeam = await prisma.dreamTeam.findFirst({
+      where: { userId: req.user.id }
+    });
+    const existingPlayerIds = dreamTeam?.players || [];
+
+    // Validate all players and calculate total cost (only for NEW players)
     let totalCost = 0;
     const playerDetails = [];
+    const newPlayerDetails = []; // Players that need to be purchased
+    const existingPlayerDetails = []; // Players already owned
     const unavailableUntil = new Date();
     unavailableUntil.setDate(unavailableUntil.getDate() + 30); // 30 days lock period
 
     for (const playerId of players) {
-      const availabilityCheck = await checkPlayerAvailability(playerId);
+      // Pass teamOwnerId to allow already-owned players
+      const availabilityCheck = await checkPlayerAvailability(playerId, teamOwner.id);
       
       if (!availabilityCheck.available) {
         return res.status(400).json({ 
@@ -162,11 +176,18 @@ export const updateMyDreamTeam = async (req, res) => {
         });
       }
 
-      totalCost += availabilityCheck.player.price;
       playerDetails.push(availabilityCheck.player);
+      
+      // Only charge for players that are not already owned by this team owner
+      if (!availabilityCheck.alreadyOwned) {
+        totalCost += availabilityCheck.player.price;
+        newPlayerDetails.push(availabilityCheck.player);
+      } else {
+        existingPlayerDetails.push(availabilityCheck.player);
+      }
     }
 
-    // Check if team owner has sufficient budget
+    // Check if team owner has sufficient budget (only for new players)
     if (teamOwner.currentBudget < totalCost) {
       return res.status(400).json({ 
         error: 'Insufficient budget.',
@@ -175,16 +196,14 @@ export const updateMyDreamTeam = async (req, res) => {
       });
     }
 
-    // Get existing dream team
-    let dreamTeam = await prisma.dreamTeam.findFirst({
-      where: { userId: req.user.id }
-    });
+    // Find players to release (were in dream team but not in new list)
+    const playersToRelease = existingPlayerIds.filter(id => !players.includes(id));
 
-    // Release previously owned players
-    if (dreamTeam && dreamTeam.players.length > 0) {
+    // Release players that are being removed from the team
+    if (playersToRelease.length > 0) {
       await prisma.player.updateMany({
         where: { 
-          id: { in: dreamTeam.players },
+          id: { in: playersToRelease },
           currentOwner: teamOwner.id
         },
         data: {
@@ -198,8 +217,8 @@ export const updateMyDreamTeam = async (req, res) => {
 
     // Start a transaction to update players and dream team
     const result = await prisma.$transaction(async (tx) => {
-      // Mark new players as unavailable
-      for (const player of playerDetails) {
+      // Only mark NEW players as unavailable (not already owned ones)
+      for (const player of newPlayerDetails) {
         await tx.player.update({
           where: { id: player.id },
           data: {
@@ -210,7 +229,7 @@ export const updateMyDreamTeam = async (req, res) => {
           }
         });
 
-        // Create transaction record
+        // Create transaction record only for new purchases
         await tx.playerTransaction.create({
           data: {
             playerId: player.id,
@@ -221,13 +240,15 @@ export const updateMyDreamTeam = async (req, res) => {
         });
       }
 
-      // Update team owner budget
-      await tx.teamOwner.update({
-        where: { id: teamOwner.id },
-        data: {
-          currentBudget: teamOwner.currentBudget - totalCost
-        }
-      });
+      // Update team owner budget (only deduct for new players)
+      if (totalCost > 0) {
+        await tx.teamOwner.update({
+          where: { id: teamOwner.id },
+          data: {
+            currentBudget: teamOwner.currentBudget - totalCost
+          }
+        });
+      }
 
       // Update or create dream team
       if (!dreamTeam) {

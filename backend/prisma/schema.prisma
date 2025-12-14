@@ -222,3 +222,15 @@ type OrderItem {
   quantity        Int
   image           String?
 }
+
+// Blog model - for admin blog posts
+model Blog {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  details     String
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("blogs")
+}

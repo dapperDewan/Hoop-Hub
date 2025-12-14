@@ -11,6 +11,7 @@ import funFactsRoutes from './funFacts.js';
 import dreamTeamRoutes from './dreamTeam.js';
 import profileRoutes from './profile.js';
 import teamOwnerRoutes from './teamOwner.js';
+import blogRoutes from './blog.js';
 import { optionalAuth } from '../middleware/auth.js';
 
 const router = Router();
@@ -19,6 +20,7 @@ router.use('/merchandise', merchandiseRoutes);
 router.use('/funFacts', funFactsRoutes);
 router.use('/dreamteam', dreamTeamRoutes);
 router.use('/team-owner', teamOwnerRoutes);
+router.use('/blog', blogRoutes);
 
 router.get('/players', optionalAuth, playerController.getAllPlayers);
 router.get('/players/:id', playerController.getPlayerById);

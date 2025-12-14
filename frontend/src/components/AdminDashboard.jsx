@@ -9,8 +9,11 @@ const AdminDashboard = () => {
   const [matches, setMatches] = useState([]);
   const [applications, setApplications] = useState([]);
   const [merchandiseOrders, setMerchandiseOrders] = useState([]);
+  const [blogs, setBlogs] = useState([]);
   const [matchForm, setMatchForm] = useState({ homeTeam: '', awayTeam: '', date: '', venue: '' });
+  const [blogForm, setBlogForm] = useState({ title: '', details: '', imageUrls: '' });
   const [matchError, setMatchError] = useState('');
+  const [blogError, setBlogError] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeModal, setActiveModal] = useState(null);
@@ -23,13 +26,14 @@ const AdminDashboard = () => {
     if (!username || !isAdmin) return;
     const fetchAll = async () => {
       try {
-        const [usersRes, playersRes, teamsRes, matchesRes, applicationsRes, ordersRes] = await Promise.all([
+        const [usersRes, playersRes, teamsRes, matchesRes, applicationsRes, ordersRes, blogsRes] = await Promise.all([
           apiClient.get('admin/users', { params: { admin: true } }),
           apiClient.get('players'),
           apiClient.get('teams'),
           apiClient.get('match'),
           apiClient.get('team-owner/applications'),
           apiClient.get('merchandise/orders'),
+          apiClient.get('blog'),
         ]);
         setUsers(usersRes.data);
         setPlayers(playersRes.data);
@@ -37,6 +41,7 @@ const AdminDashboard = () => {
         setMatches(matchesRes.data);
         setApplications(applicationsRes.data);
         setMerchandiseOrders(ordersRes.data || []);
+        setBlogs(blogsRes.data || []);
         setLoading(false);
       } catch (err) {
         setError('Failed to fetch admin data.');
@@ -148,6 +153,15 @@ const AdminDashboard = () => {
       subtitle: 'pending orders',
       gradient: 'from-rose-600/30 to-pink-600/30',
       borderColor: 'border-rose-500/30',
+    },
+    {
+      id: 'blogs',
+      icon: '📝',
+      title: 'Manage Blogs',
+      count: blogs.length,
+      subtitle: 'blog posts',
+      gradient: 'from-cyan-600/30 to-blue-600/30',
+      borderColor: 'border-cyan-500/30',
     },
   ];
 
@@ -736,6 +750,116 @@ const AdminDashboard = () => {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Blogs Modal */}
+      {activeModal === 'blogs' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 overflow-y-auto py-8" onClick={() => setActiveModal(null)}>
+          <div 
+            className="w-full max-w-4xl rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl my-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold">Manage Blog Posts</h2>
+                <p className="text-slate-400 text-sm">{blogs.length} blog posts</p>
+              </div>
+              <button onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-white text-3xl">×</button>
+            </div>
+            
+            {/* Add Blog Form */}
+            <form className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4" onSubmit={async e => {
+              e.preventDefault();
+              setBlogError('');
+              try {
+                const res = await apiClient.post('blog', blogForm);
+                setBlogs(b => [res.data, ...b]);
+                setBlogForm({ title: '', details: '', imageUrls: '' });
+              } catch {
+                setBlogError('Failed to add blog post.');
+              }
+            }}>
+              <p className="text-sm font-semibold mb-3 text-slate-300">Add New Blog Post</p>
+              <div className="space-y-3">
+                <input 
+                  value={blogForm.title} 
+                  onChange={e => setBlogForm(f => ({ ...f, title: e.target.value }))} 
+                  placeholder="Blog Title" 
+                  className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm" 
+                  required 
+                />
+                <textarea 
+                  value={blogForm.details} 
+                  onChange={e => setBlogForm(f => ({ ...f, details: e.target.value }))} 
+                  placeholder="Blog Details / Content" 
+                  rows={4}
+                  className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm resize-none" 
+                  required 
+                />
+                <textarea 
+                  value={blogForm.imageUrls} 
+                  onChange={e => setBlogForm(f => ({ ...f, imageUrls: e.target.value }))} 
+                  placeholder="Image URLs (comma-separated, e.g., url1, url2, url3)" 
+                  rows={2}
+                  className="w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm resize-none" 
+                />
+              </div>
+              <div className="mt-3 flex items-center gap-3">
+                <button type="submit" className="rounded-full bg-cyan-500 px-5 py-2 text-sm font-bold text-white hover:bg-cyan-600 transition">
+                  Add Blog Post
+                </button>
+                {blogError && <span className="text-sm text-red-400">{blogError}</span>}
+              </div>
+            </form>
+
+            <div className="max-h-[40vh] overflow-y-auto">
+              <div className="space-y-3">
+                {blogs.map(blog => (
+                  <div key={blog.id || blog._id} className="rounded-xl border border-white/10 bg-white/5 p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          {blog.imageUrl && (
+                            <div className="flex gap-1">
+                              {blog.imageUrl.split(',').slice(0, 3).map((url, idx) => (
+                                <img key={idx} src={url.trim()} alt={`${blog.title} ${idx + 1}`} className="h-16 w-16 rounded-xl object-contain bg-slate-800" />
+                              ))}
+                            </div>
+                          )}
+                          <div>
+                            <h3 className="text-lg font-bold text-white">{blog.title}</h3>
+                            <p className="text-sm text-slate-400 line-clamp-2">{blog.details}</p>
+                            <p className="text-xs text-slate-500 mt-1">
+                              Created: {new Date(blog.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <button 
+                        className="rounded-full bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-200 hover:bg-red-500/30 transition"
+                        onClick={async () => {
+                          if (!confirm(`Delete blog "${blog.title}"?`)) return;
+                          const blogId = blog.id || blog._id;
+                          try {
+                            await apiClient.delete(`blog/${blogId}`);
+                            setBlogs(blogs => blogs.filter(b => (b.id || b._id) !== blogId));
+                          } catch {
+                            alert('Failed to delete blog');
+                          }
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {blogs.length === 0 && (
+                  <p className="text-center py-8 text-slate-400">No blog posts yet. Add your first one above!</p>
+                )}
               </div>
             </div>
           </div>

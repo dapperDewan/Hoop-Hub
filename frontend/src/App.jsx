@@ -20,6 +20,7 @@ const FunFacts = lazy(() => import('./components/FunFacts'));
 const MerchandisePage = lazy(() => import('./components/MerchandisePage'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 const TeamOwnerApplicationPage = lazy(() => import('./components/TeamOwnerApplicationPage'));
+const BlogDetailsPage = lazy(() => import('./components/BlogDetailsPage'));
 
 const getSessionFromStorage = () => ({
   username: localStorage.getItem('username'),
@@ -106,6 +107,7 @@ function AppContent({ session, setSession, onAuthSuccess }) {
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/merchandise" element={<MerchandisePage isAuthenticated={Boolean(session.username)} isAdmin={session.isAdmin} />} />
               <Route path="/fun-facts" element={<FunFacts />} />
+              <Route path="/blog/:id" element={<BlogDetailsPage />} />
               <Route path="/auth" element={<AuthPage onAuthSuccess={onAuthSuccess} />} />
               <Route path="*" element={<div className="flex min-h-[50vh] items-center justify-center text-white">Page not found.</div>} />
             </Routes>
