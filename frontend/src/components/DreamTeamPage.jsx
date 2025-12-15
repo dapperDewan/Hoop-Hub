@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import apiClient from "../services/api";
 
@@ -20,20 +20,20 @@ function DreamTeamPage() {
   const [totalCost, setTotalCost] = useState(0);
   const [loading, setLoading] = useState(true);
 
+  const loadPlayers = useCallback(async () => {
+    const res = await apiClient.get('players');
+    return res.data;
+  }, []);
+
   useEffect(() => {
-    async function fetchAllPlayers() {
-      try {
-        const res = await apiClient.get('players');
-        setAllPlayers(res.data);
-      } catch (err) {}
-    }
-    
+    let cancelled = false;
+
     async function fetchTeamOwner() {
       try {
         if (username && !isAdmin) {
           const res = await apiClient.get('team-owner/my-profile');
+          if (cancelled) return;
           if (!res.data.teamOwner) {
-            // Not a team owner, redirect
             setError('Only team owners can access this page.');
             setTimeout(() => navigate('/team-owner-apply'), 2000);
             setLoading(false);
@@ -41,8 +41,11 @@ function DreamTeamPage() {
           }
           setTeamOwner(res.data.teamOwner);
         }
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       } catch (err) {
+        if (cancelled) return;
         if (!isAdmin) {
           setError('Only team owners can access this page.');
           setTimeout(() => navigate('/team-owner-apply'), 2000);
@@ -51,21 +54,26 @@ function DreamTeamPage() {
       }
     }
     
-    fetchAllPlayers();
     fetchTeamOwner();
 
     if (!username && !viewUserId) {
       setPlayers([]);
+      setSelectedPlayers([]);
       setError('Please log in to view your dream team.');
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
+
     async function fetchDreamTeam() {
       try {
         const token = localStorage.getItem('token');
         if (!token && !viewUserId) {
-          setPlayers([]);
-          setSelectedPlayers([]);
-          setError('Please log in to view your dream team.');
+          if (!cancelled) {
+            setPlayers([]);
+            setSelectedPlayers([]);
+            setError('Please log in to view your dream team.');
+          }
           return;
         }
         let endpoint = 'dreamteam/my';
@@ -73,17 +81,25 @@ function DreamTeamPage() {
           endpoint = `dreamteam/user/${viewUserId}`;
         }
         const res = await apiClient.get(endpoint);
-        setPlayers(res.data.players || []);
-        setSelectedPlayers((res.data.players || []).map(p => getPlayerId(p)));
-        setError('');
+        if (!cancelled) {
+          setPlayers(res.data.players || []);
+          setSelectedPlayers((res.data.players || []).map(p => getPlayerId(p)));
+          setError('');
+        }
       } catch (err) {
-        setPlayers([]);
-        setSelectedPlayers([]);
-        setError('Failed to fetch dream team.');
+        if (!cancelled) {
+          setPlayers([]);
+          setSelectedPlayers([]);
+          setError('Failed to fetch dream team.');
+        }
       }
     }
     fetchDreamTeam();
-  }, [username, viewUserId]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [username, viewUserId, isAdmin, navigate]);
 
   // Update team name when user changes
   useEffect(() => {
@@ -96,6 +112,29 @@ function DreamTeamPage() {
   const alreadyOwnedPlayerIds = allPlayers
     .filter(p => teamOwner && p.currentOwner === teamOwner.id)
     .map(p => getPlayerId(p));
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncPlayers = async () => {
+      try {
+        const data = await loadPlayers();
+        if (!cancelled) {
+          setAllPlayers(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.error('Failed to fetch players list', err);
+        }
+      }
+    };
+
+    syncPlayers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadPlayers, teamOwner?.id, username, isAdmin]);
 
   // Calculate total cost when selected players change
   // Only count NEW players that need to be purchased (not already owned by this team owner)
@@ -146,7 +185,30 @@ function DreamTeamPage() {
       const ownerRes = await apiClient.get('team-owner/my-profile');
       setTeamOwner(ownerRes.data.teamOwner);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to save dream team.');
+      let message = err.response?.data?.error || 'Failed to save dream team.';
+      const availabilityDetails = err.response?.data?.details;
+      const unavailableMatch = message.match(/^Player\s+([a-f0-9]{24}):\s+(.*)$/i);
+
+      if (unavailableMatch) {
+        const [, failedPlayerId, reason] = unavailableMatch;
+        const playerName = allPlayers.find(p => getPlayerId(p) === failedPlayerId)?.name;
+        if (playerName) {
+          message = `${playerName}: ${reason}`;
+        }
+        if (availabilityDetails?.unavailableUntil) {
+          message = `${message} (locked until ${new Date(availabilityDetails.unavailableUntil).toLocaleDateString()})`;
+        }
+        setSelectedPlayers(prev => prev.filter(id => id !== failedPlayerId));
+      }
+
+      setError(message);
+
+      try {
+        const refreshed = await loadPlayers();
+        setAllPlayers(refreshed);
+      } catch (refreshError) {
+        console.error('Failed to refresh players after save error', refreshError);
+      }
     }
   };
 
@@ -436,15 +498,15 @@ function DreamTeamPage() {
                   </div>
                   <div className="flex gap-6 text-center">
                     <div>
-                      <div className="font-bold text-green-400">{player.stats?.pointsPerGame ?? '-'}</div>
+                      <div className="font-bold text-green-400">{player.stats?.points ?? player.stats?.pointsPerGame ?? '-'}</div>
                       <div className="text-xs text-gray-500">PPG</div>
                     </div>
                     <div>
-                      <div className="font-bold text-green-400">{player.stats?.assistsPerGame ?? '-'}</div>
+                      <div className="font-bold text-green-400">{player.stats?.assists ?? player.stats?.assistsPerGame ?? '-'}</div>
                       <div className="text-xs text-gray-500">APG</div>
                     </div>
                     <div>
-                      <div className="font-bold text-green-400">{player.stats?.reboundsPerGame ?? '-'}</div>
+                      <div className="font-bold text-green-400">{player.stats?.rebounds ?? player.stats?.reboundsPerGame ?? '-'}</div>
                       <div className="text-xs text-gray-500">RPG</div>
                     </div>
                   </div>
@@ -477,15 +539,15 @@ function DreamTeamPage() {
                   </div>
                   <div className="flex gap-6 text-center">
                     <div>
-                      <div className="font-bold text-yellow-400">{player.stats?.pointsPerGame ?? '-'}</div>
+                      <div className="font-bold text-yellow-400">{player.stats?.points ?? player.stats?.pointsPerGame ?? '-'}</div>
                       <div className="text-xs text-gray-500">PPG</div>
                     </div>
                     <div>
-                      <div className="font-bold text-yellow-400">{player.stats?.assistsPerGame ?? '-'}</div>
+                        <div className="font-bold text-yellow-400">{player.stats?.assists ?? player.stats?.assistsPerGame ?? '-'}</div>
                       <div className="text-xs text-gray-500">APG</div>
                     </div>
                     <div>
-                      <div className="font-bold text-yellow-400">{player.stats?.reboundsPerGame ?? '-'}</div>
+                        <div className="font-bold text-yellow-400">{player.stats?.rebounds ?? player.stats?.reboundsPerGame ?? '-'}</div>
                       <div className="text-xs text-gray-500">RPG</div>
                     </div>
                   </div>

@@ -20,6 +20,7 @@ const guestHighlights = [
 
 const baseMemberLinks = [
   { to: '/profile', label: 'Profile hub' },
+  { to: '/fun-facts', label: 'Fun Facts' },
   { to: '/favorites', label: 'Favorite players' },
   { to: '/favorite-teams', label: 'Favorite teams' },
   { to: '/team-owner-apply', label: 'Team Owner' }
@@ -80,6 +81,8 @@ function Navbar({ isAuthenticated, isAdmin, username = 'Hooper', onLogout }) {
     };
     fetchTeamOwner();
   }, [isAuthenticated, isAdmin]);
+
+  
 
   useEffect(() => {
     const handleScroll = () => {

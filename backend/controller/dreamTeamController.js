@@ -336,3 +336,33 @@ export const getDreamTeamByUsername = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch dream team.' });
   }
 };
+
+// Get a list of recent dream teams for exploration
+export const getAllDreamTeams = async (req, res) => {
+  try {
+    const dreamTeams = await prisma.dreamTeam.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: 20
+    });
+
+    const results = [];
+    for (const dt of dreamTeams) {
+      const players = dt.players?.length > 0
+        ? await prisma.player.findMany({ where: { id: { in: dt.players } } })
+        : [];
+      const user = await prisma.user.findUnique({ where: { id: dt.userId } });
+      results.push({
+        id: dt.id,
+        userId: dt.userId,
+        username: user?.username || null,
+        name: dt.name || null,
+        players
+      });
+    }
+
+    res.json({ teams: results });
+  } catch (err) {
+    console.error('Failed to list dream teams', err);
+    res.status(500).json({ error: 'Failed to list dream teams.' });
+  }
+};

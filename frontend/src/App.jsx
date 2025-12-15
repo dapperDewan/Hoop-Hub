@@ -21,6 +21,7 @@ const MerchandisePage = lazy(() => import('./components/MerchandisePage'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 const TeamOwnerApplicationPage = lazy(() => import('./components/TeamOwnerApplicationPage'));
 const BlogDetailsPage = lazy(() => import('./components/BlogDetailsPage'));
+const PlayerDetailsPage = lazy(() => import('./components/PlayerDetailsPage'));
 
 const getSessionFromStorage = () => ({
   username: localStorage.getItem('username'),
@@ -95,6 +96,7 @@ function AppContent({ session, setSession, onAuthSuccess }) {
               <Route path="/" element={<HomePage isAuthenticated={Boolean(session.username)} />} />
               <Route path="/profile" element={<ProfilePage username={session.username} isAdmin={session.isAdmin} />} />
               <Route path="/players" element={<PlayersPage />} />
+              <Route path="/players/:id" element={<PlayerDetailsPage />} />
               
               <Route path="/teams" element={<TeamsPage />} />
               <Route path="/teams/:id" element={<TeamProfile />} />
