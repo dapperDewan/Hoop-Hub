@@ -14,10 +14,14 @@ const FavoritePlayersPage = lazy(() => import('./components/FavoritePlayersPage'
 const DreamTeamPage = lazy(() => import('./components/DreamTeamPage'));
 const FavoriteTeamsPage = lazy(() => import('./components/FavoriteTeamsPage'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const AdminCreateTournament = lazy(() => import('./components/AdminCreateTournament'));
+const AdminMatchManager = lazy(() => import('./components/AdminMatchManager'));
+const AdminMatchDetail = lazy(() => import('./components/AdminMatchDetail'));
 const ViewDreamTeam = lazy(() => import('./components/ViewDreamTeam'));
 const FixturesPage = lazy(() => import('./components/FixturesPage'));
 const FunFacts = lazy(() => import('./components/FunFacts'));
 const MerchandisePage = lazy(() => import('./components/MerchandisePage'));
+const TournamentPage = lazy(() => import('./components/TournamentPage'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 const TeamOwnerApplicationPage = lazy(() => import('./components/TeamOwnerApplicationPage'));
 const BlogDetailsPage = lazy(() => import('./components/BlogDetailsPage'));
@@ -106,6 +110,10 @@ function AppContent({ session, setSession, onAuthSuccess }) {
               <Route path="/view-dreamteam" element={<ViewDreamTeam />} />
               <Route path="/team-owner-apply" element={<TeamOwnerApplicationPage />} />
               <Route path="/fixtures" element={<FixturesPage />} />
+              <Route path="/tournaments" element={<TournamentPage />} />
+              <Route path="/admin/tournaments/create" element={<AdminCreateTournament />} />
+              <Route path="/admin/matches" element={<AdminMatchManager />} />
+              <Route path="/admin/matches/:id" element={<AdminMatchDetail />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/merchandise" element={<MerchandisePage isAuthenticated={Boolean(session.username)} isAdmin={session.isAdmin} />} />
               <Route path="/fun-facts" element={<FunFacts />} />

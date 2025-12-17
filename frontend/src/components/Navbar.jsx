@@ -10,6 +10,7 @@ const baseLinks = [
   { to: '/', label: 'Home' },
   { to: '/players', label: 'Players' },
   { to: '/teams', label: 'Teams' },
+  { to: '/tournaments', label: 'Tournaments' },
   { to: '/fixtures', label: 'Fixtures' },
   { to: '/merchandise', label: 'Merch' }
 ];

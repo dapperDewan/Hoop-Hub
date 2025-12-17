@@ -7,6 +7,7 @@ const AdminDashboard = () => {
   const [players, setPlayers] = useState([]);
   const [teams, setTeams] = useState([]);
   const [matches, setMatches] = useState([]);
+  const [tournaments, setTournaments] = useState([]);
   const [applications, setApplications] = useState([]);
   const [merchandiseOrders, setMerchandiseOrders] = useState([]);
   const [blogs, setBlogs] = useState([]);
@@ -26,7 +27,7 @@ const AdminDashboard = () => {
     if (!username || !isAdmin) return;
     const fetchAll = async () => {
       try {
-        const [usersRes, playersRes, teamsRes, matchesRes, applicationsRes, ordersRes, blogsRes] = await Promise.all([
+        const [usersRes, playersRes, teamsRes, matchesRes, applicationsRes, ordersRes, blogsRes, tournamentsRes] = await Promise.all([
           apiClient.get('admin/users', { params: { admin: true } }),
           apiClient.get('players'),
           apiClient.get('teams'),
@@ -34,6 +35,7 @@ const AdminDashboard = () => {
           apiClient.get('team-owner/applications'),
           apiClient.get('merchandise/orders'),
           apiClient.get('blog'),
+          apiClient.get('tournaments'),
         ]);
         setUsers(usersRes.data);
         setPlayers(playersRes.data);
@@ -42,6 +44,7 @@ const AdminDashboard = () => {
         setApplications(applicationsRes.data);
         setMerchandiseOrders(ordersRes.data || []);
         setBlogs(blogsRes.data || []);
+        setTournaments(tournamentsRes.data || []);
         setLoading(false);
       } catch (err) {
         setError('Failed to fetch admin data.');
@@ -74,6 +77,8 @@ const AdminDashboard = () => {
     );
   }
 
+
+      
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-950 text-white py-16 px-4">
@@ -100,6 +105,15 @@ const AdminDashboard = () => {
   }
 
   const adminBlocks = [
+    {
+      id: 'tournaments',
+      icon: '🏆',
+      title: 'Tournaments',
+      count: tournaments.length,
+      subtitle: 'create & manage',
+      gradient: 'from-amber-600/30 to-orange-600/30',
+      borderColor: 'border-amber-500/30',
+    },
     {
       id: 'applications',
       icon: '📋',
@@ -176,6 +190,7 @@ const AdminDashboard = () => {
             <p className="text-slate-200 max-w-3xl">
               Manage all aspects of Hoop Hub from one place. Click on any section below to view details and take action.
             </p>
+            
           </div>
           
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 text-sm">
@@ -202,8 +217,14 @@ const AdminDashboard = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {adminBlocks.map((block) => (
             <button
+              type="button"
               key={block.id}
-              onClick={() => setActiveModal(block.id)}
+              onClick={() => {
+                console.log('admin tile click', block.id);
+                if (block.id === 'tournaments') return navigate('/admin/tournaments/create');
+                if (block.id === 'matches') return navigate('/admin/matches');
+                setActiveModal(block.id);
+              }}
               className={`group rounded-3xl border ${block.borderColor} bg-gradient-to-br ${block.gradient} p-8 text-left shadow-lg hover:scale-[1.02] hover:shadow-xl transition-all duration-200`}
             >
               <div className="text-5xl mb-4">{block.icon}</div>
@@ -475,113 +496,7 @@ const AdminDashboard = () => {
       )}
 
       {/* Matches Modal */}
-      {activeModal === 'matches' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 overflow-y-auto py-8" onClick={() => setActiveModal(null)}>
-          <div 
-            className="w-full max-w-4xl rounded-3xl border border-white/10 bg-slate-900 p-6 shadow-2xl my-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className="text-2xl font-bold">Match Fixtures</h2>
-                <p className="text-slate-400 text-sm">{matches.length} scheduled matches</p>
-              </div>
-              <button onClick={() => setActiveModal(null)} className="text-slate-400 hover:text-white text-3xl">×</button>
-            </div>
-            
-            {/* Add Match Form */}
-            <form className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4" onSubmit={async e => {
-              e.preventDefault();
-              setMatchError('');
-              try {
-                const res = await apiClient.post('match', matchForm);
-                setMatches(m => [...m, res.data]);
-                setMatchForm({ homeTeam: '', awayTeam: '', date: '', venue: '' });
-              } catch {
-                setMatchError('Failed to add match.');
-              }
-            }}>
-              <p className="text-sm font-semibold mb-3 text-slate-300">Add New Match</p>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <input 
-                  value={matchForm.homeTeam} 
-                  onChange={e => setMatchForm(f => ({ ...f, homeTeam: e.target.value }))} 
-                  placeholder="Home Team" 
-                  className="rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm" 
-                  required 
-                />
-                <input 
-                  value={matchForm.awayTeam} 
-                  onChange={e => setMatchForm(f => ({ ...f, awayTeam: e.target.value }))} 
-                  placeholder="Away Team" 
-                  className="rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm" 
-                  required 
-                />
-                <input 
-                  value={matchForm.date} 
-                  onChange={e => setMatchForm(f => ({ ...f, date: e.target.value }))} 
-                  type="datetime-local" 
-                  className="rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm" 
-                  required 
-                />
-                <input 
-                  value={matchForm.venue} 
-                  onChange={e => setMatchForm(f => ({ ...f, venue: e.target.value }))} 
-                  placeholder="Venue" 
-                  className="rounded-xl border border-white/10 bg-slate-950 px-4 py-2 text-sm" 
-                  required 
-                />
-              </div>
-              <div className="mt-3 flex items-center gap-3">
-                <button type="submit" className="rounded-full bg-emerald-500 px-5 py-2 text-sm font-bold text-white hover:bg-emerald-600 transition">
-                  Add Match
-                </button>
-                {matchError && <span className="text-sm text-red-400">{matchError}</span>}
-              </div>
-            </form>
-
-            <div className="max-h-[40vh] overflow-y-auto">
-              <div className="space-y-3">
-                {matches.map(match => (
-                  <div key={match.id || match._id} className="rounded-xl border border-white/10 bg-white/5 p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 text-lg font-bold">
-                          <span>{match.homeTeam}</span>
-                          <span className="text-slate-500">vs</span>
-                          <span>{match.awayTeam}</span>
-                        </div>
-                        <div className="flex flex-wrap gap-4 mt-2 text-sm text-slate-400">
-                          <span>📅 {new Date(match.date).toLocaleString()}</span>
-                          <span>📍 {match.venue}</span>
-                          <span className={`px-2 py-0.5 rounded-full text-xs ${
-                            match.status === 'scheduled' ? 'bg-blue-500/20 text-blue-200' :
-                            match.status === 'live' ? 'bg-green-500/20 text-green-200' :
-                            'bg-slate-500/20 text-slate-200'
-                          }`}>
-                            {match.status}
-                          </span>
-                        </div>
-                      </div>
-                      <button 
-                        className="rounded-full bg-red-500/20 px-4 py-2 text-sm font-semibold text-red-200 hover:bg-red-500/30 transition"
-                        onClick={async () => {
-                          if (!confirm('Delete this match?')) return;
-                          const matchId = match.id || match._id;
-                          await apiClient.delete(`match/${matchId}`);
-                          setMatches(matches => matches.filter(m => (m.id || m._id) !== matchId));
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Matches management moved to dedicated page: /admin/matches */}
 
       {/* Merchandise Orders Modal */}
       {activeModal === 'orders' && (

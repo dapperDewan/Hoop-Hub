@@ -91,15 +91,20 @@ model Team {
 
 // Match model - matches existing MongoDB matches collection
 model Match {
-  id        String      @id @default(auto()) @map("_id") @db.ObjectId
-  homeTeam  String?     @db.ObjectId
-  awayTeam  String?     @db.ObjectId
-  date      DateTime?
-  venue     String?
-  score     MatchScore?
-  status    String?
-  createdAt DateTime?
-  updatedAt DateTime?
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  tournamentId String?     @db.ObjectId
+  teams       String[]    @db.ObjectId // Participating team IDs (2 items for a match)
+  homeTeam    String?     @db.ObjectId
+  awayTeam    String?     @db.ObjectId
+  date        DateTime?   // match start date/time
+  durationMin Int?        // expected duration in minutes
+  venue       String?
+  score       MatchScore?
+  winner      String?     @db.ObjectId
+  status      String?     @default("scheduled") // scheduled, live, completed
+  isLive      Boolean?    @default(false)
+  createdAt   DateTime?
+  updatedAt   DateTime?
 
   @@map("matches")
 }
@@ -194,6 +199,35 @@ model PlayerTransaction {
   @@map("playertransactions")
 }
 
+// MerchandiseOrder model - tracks merchandise purchases
+model MerchandiseOrder {
+  id              String   @id @default(auto()) @map("_id") @db.ObjectId
+  buyerId         String   @db.ObjectId // User who purchased
+  buyerName       String
+  buyerEmail      String?
+  buyerPhone      String?
+  items           OrderItem[]
+  totalAmount     Float
+  paymentInfo     PaymentInfo
+  status          String   @default("pending") // pending, approved, rejected
+  ownerId         String?  @db.ObjectId // Team owner who listed the products
+  ownerName       String?
+  reviewedBy      String?  @db.ObjectId // Admin who reviewed
+  reviewedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("merchandiseorders")
+}
+
+type OrderItem {
+  merchandiseId   String   @db.ObjectId
+  name            String
+  price           Float
+  quantity        Int
+  image           String?
+}
+
 // Blog model - for admin blog posts
 model Blog {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
@@ -204,4 +238,20 @@ model Blog {
   updatedAt   DateTime @updatedAt
 
   @@map("blogs")
+}
+
+// Tournament model - manages competitions between existing `Team` documents
+model Tournament {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  description String?
+  startDate   DateTime
+  endDate     DateTime
+  status      String?  @default("scheduled") // scheduled, ongoing, completed
+  teams       String[] @db.ObjectId // Participating Team IDs
+  createdBy   String?  @db.ObjectId // Admin User ID who created the tournament
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("tournaments")
 }
