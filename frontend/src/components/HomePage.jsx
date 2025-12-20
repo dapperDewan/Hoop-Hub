@@ -224,6 +224,12 @@ function HomePage({ isAuthenticated }) {
     const [playersLoading, setPlayersLoading] = useState(false);
     const [latestBlogs, setLatestBlogs] = useState([]);
     const [blogsLoading, setBlogsLoading] = useState(false);
+    const [featuredTournament, setFeaturedTournament] = useState(null);
+    const [tournamentsLoading, setTournamentsLoading] = useState(false);
+    const [featuredMatches, setFeaturedMatches] = useState([]);
+    const [matchesLoading, setMatchesLoading] = useState(false);
+    const [teamMap, setTeamMap] = useState({});
+    const [showFeaturedModal, setShowFeaturedModal] = useState(false);
     const [activeNavIndex, setActiveNavIndex] = useState(0);
     const isMobile = useIsMobile();
     const displayedFeaturePromises = isMobile ? featurePromises.slice(0, 4) : featurePromises;
@@ -317,6 +323,106 @@ function HomePage({ isAuthenticated }) {
         };
     }, []);
 
+    // Fetch tournaments and pick the next upcoming or latest past one
+    useEffect(() => {
+        let isMounted = true;
+        setTournamentsLoading(true);
+        apiClient
+            .get('tournaments')
+            .then(({ data }) => {
+                if (!isMounted || !Array.isArray(data)) return;
+                const now = new Date();
+                const upcoming = data
+                    .filter(t => t.startDate && new Date(t.endDate) >= now)
+                    .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+                const chosen = upcoming[0] || data
+                    .filter(t => t.endDate && new Date(t.endDate) < now)
+                    .sort((a, b) => new Date(b.endDate) - new Date(a.endDate))[0] || null;
+                if (chosen) {
+                    setFeaturedTournament(chosen);
+                }
+            })
+            .catch(() => {
+                if (isMounted) setFeaturedTournament(null);
+            })
+            .finally(() => { if (isMounted) setTournamentsLoading(false); });
+        return () => { isMounted = false; };
+    }, []);
+
+    // Fetch matches for featured tournament and poll for live updates
+    useEffect(() => {
+        let mounted = true;
+        let poll = null;
+        const fetchMatches = async () => {
+            if (!featuredTournament || !featuredTournament.id && !featuredTournament._id) return;
+            setMatchesLoading(true);
+            try {
+                const tid = featuredTournament.id || featuredTournament._id;
+                const res = await apiClient.get(`match?tournamentId=${tid}`);
+                if (!mounted) return;
+                const isCancelled = (m) => {
+                    const s = (m?.status || '').toString().toLowerCase();
+                    return s === 'cancelled' || s === 'canceled' || s === 'cancel';
+                };
+                const payload = res.data || [];
+                const filtered = Array.isArray(payload) ? payload.filter(m => !isCancelled(m)) : (payload && payload.matches ? payload.matches.filter(m => !isCancelled(m)) : (payload && payload.data ? payload.data.filter(m => !isCancelled(m)) : (payload && !isCancelled(payload) ? [payload] : [])));
+                setFeaturedMatches(filtered);
+                resolveTeamNames(payload);
+                const hasLive = Array.isArray(payload) && payload.some(m => m.status === 'live' || m.isLive);
+                // poll while tournament ongoing or any live match
+                const now = new Date();
+                const inTournament = featuredTournament.startDate && featuredTournament.endDate && new Date(featuredTournament.startDate) <= now && new Date(featuredTournament.endDate) >= now;
+                if ((hasLive || inTournament) && !poll) {
+                    poll = setInterval(async () => {
+                            try {
+                            const r = await apiClient.get(`match?tournamentId=${tid}`);
+                            if (!mounted) return;
+                                        const payload2 = r.data || [];
+                                        const filtered2 = Array.isArray(payload2) ? payload2.filter(m => !isCancelled(m)) : (payload2 && payload2.matches ? payload2.matches.filter(m => !isCancelled(m)) : (payload2 && payload2.data ? payload2.data.filter(m => !isCancelled(m)) : (payload2 && !isCancelled(payload2) ? [payload2] : [])));
+                                        setFeaturedMatches(filtered2);
+                                        resolveTeamNames(payload2);
+                        } catch (e) {
+                            // ignore
+                        }
+                    }, 4000);
+                }
+                if (!hasLive && !inTournament && poll) {
+                    clearInterval(poll);
+                    poll = null;
+                }
+            } catch (e) {
+                if (mounted) setFeaturedMatches([]);
+            } finally {
+                if (mounted) setMatchesLoading(false);
+            }
+        };
+        fetchMatches();
+        return () => { mounted = false; if (poll) clearInterval(poll); };
+    }, [featuredTournament]);
+
+    const resolveTeamNames = async (items) => {
+        try {
+            const arr = Array.isArray(items) ? items : (items && items.matches) ? items.matches : (items && items.data) ? items.data : (items ? [items] : []);
+            const ids = new Set();
+            arr.forEach(m => {
+                const push = v => { if (typeof v === 'string' && /^[0-9a-fA-F]{24}$/.test(v) && !teamMap[v]) ids.add(v); };
+                push(m.homeTeam); push(m.awayTeam); (m.teams || []).forEach(push);
+            });
+            // also include featuredTournament teams
+            if (featuredTournament && Array.isArray(featuredTournament.teams)) {
+                featuredTournament.teams.forEach(t => { if (typeof t === 'string' && /^[0-9a-fA-F]{24}$/.test(t) && !teamMap[t]) ids.add(t); });
+            }
+            if (!ids.size) return;
+            const res = await apiClient.post('features/teams/byIds', { ids: Array.from(ids) });
+            const teams = res.data || [];
+            const next = { ...teamMap };
+            teams.forEach(t => { if (t && t.id) next[t.id] = t.name; });
+            setTeamMap(next);
+        } catch (e) {
+            console.debug('Home resolveTeamNames error', e?.message || e);
+        }
+    };
+
     return (
         <div className="relative overflow-hidden bg-slate-950 text-slate-100 pb-24">
             <div className="absolute inset-0 -z-10">
@@ -361,6 +467,7 @@ function HomePage({ isAuthenticated }) {
                                     </div>
                                 ))}
                             </div>
+                            
                             <div className="space-y-3 pt-4">
                                 {promiseHighlights.map(({ title, description }) => (
                                     <div key={title} className="flex items-start gap-3 rounded-2xl border border-white/5 bg-slate-900/40 p-3">
@@ -414,40 +521,9 @@ function HomePage({ isAuthenticated }) {
                                             <p className="text-sm text-slate-300 leading-relaxed">{activeNav?.description}</p>
                                             <div className="flex flex-wrap gap-2">
                                                 {activeNav?.callouts?.map((item) => (
-                                                    <span
-                                                        key={item}
-                                                        className="text-xs uppercase tracking-wide px-3 py-1 rounded-full border border-white/10 bg-white/5 text-white/90"
-                                                    >
-                                                        {item}
-                                                    </span>
+                                                    <span key={item} className="text-xs uppercase tracking-wide px-3 py-1 rounded-full border border-white/10 bg-white/5 text-white/90">{item}</span>
                                                 ))}
                                             </div>
-                                        </div>
-                                    </div>
-                                    <div className="grid gap-4 grid-cols-2">
-                                        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-                                            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Upcoming focus</p>
-                                            <p className="mt-3 text-sm text-slate-200">
-                                                Next highlight: {navPreviewLinks[(activeNavIndex + 1) % navPreviewLinks.length].label}. Desktop visitors get a hands-free tour of every
-                                                destination.
-                                            </p>
-                                            <div className="mt-4 flex items-center gap-2">
-                                                <span className="moving-indicator" />
-                                                <span className="moving-indicator delay" />
-                                                <span className="moving-indicator delay-2" />
-                                            </div>
-                                        </div>
-                                        <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-5 text-slate-200">
-                                            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Live preview</p>
-                                            <p className="mt-3 text-sm">
-                                                This desktop-only view pairs animated basketball cues with callouts, while mobile devices skip it for a lighter hero.
-                                            </p>
-                                            <Link
-                                                to="/profile"
-                                                className="mt-4 inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-white"
-                                            >
-                                                Profile preview →
-                                            </Link>
                                         </div>
                                     </div>
                                 </div>
@@ -503,70 +579,6 @@ function HomePage({ isAuthenticated }) {
                         )}
                     </div>
                 </MotionSection>
-
-                {/* Latest Blog Posts Section */}
-                {latestBlogs.length > 0 && (
-                    <MotionSection delay={0.09}>
-                        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-800 p-8 space-y-6">
-                            <header className="flex flex-col gap-3 text-center">
-                                <p className="text-xs uppercase tracking-[0.4em] text-cyan-200">Latest News</p>
-                                <h2 className="text-3xl font-semibold">From the Hoop Hub Blog</h2>
-                                <p className="text-slate-300 max-w-3xl mx-auto">
-                                    Stay updated with the latest stories, insights, and news from the basketball world.
-                                </p>
-                            </header>
-                            {blogsLoading ? (
-                                <p className="text-center text-slate-400">Loading blog posts…</p>
-                            ) : (
-                                <div className="grid gap-4 md:grid-cols-3">
-                                    {latestBlogs.map((blog) => {
-                                        // Get the first image from CSV for background
-                                        const firstImage = blog.imageUrl ? blog.imageUrl.split(',')[0].trim() : null;
-                                        return (
-                                            <Link 
-                                                key={blog.id || blog._id} 
-                                                to={`/blog/${blog.id || blog._id}`}
-                                                className="group relative rounded-2xl border border-white/10 overflow-hidden hover:scale-[1.02] transition-all duration-300 hover:shadow-xl hover:shadow-cyan-500/20"
-                                            >
-                                                {/* Background Image with Overlay */}
-                                                <div className="absolute inset-0">
-                                                    {firstImage ? (
-                                                        <img 
-                                                            src={firstImage} 
-                                                            alt="" 
-                                                            className="w-full h-full object-cover opacity-40 group-hover:opacity-50 group-hover:scale-110 transition-all duration-500"
-                                                        />
-                                                    ) : (
-                                                        <div className="w-full h-full bg-gradient-to-br from-indigo-600/30 to-purple-600/30" />
-                                                    )}
-                                                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-transparent" />
-                                                </div>
-                                                
-                                                {/* Content */}
-                                                <div className="relative p-6 min-h-[180px] flex flex-col justify-end">
-                                                    <h3 className="text-lg font-semibold text-white group-hover:text-cyan-300 transition-colors drop-shadow-lg">
-                                                        {blog.title}
-                                                    </h3>
-                                                    <p className="text-xs text-slate-300 mt-2">
-                                                        {new Date(blog.createdAt).toLocaleDateString('en-US', {
-                                                            year: 'numeric',
-                                                            month: 'long',
-                                                            day: 'numeric'
-                                                        })}
-                                                    </p>
-                                                    <p className="text-sm text-cyan-400 mt-3 group-hover:text-cyan-300 flex items-center gap-1">
-                                                        Read more 
-                                                        <span className="group-hover:translate-x-1 transition-transform">→</span>
-                                                    </p>
-                                                </div>
-                                            </Link>
-                                        );
-                                    })}
-                                </div>
-                            )}
-                        </div>
-                    </MotionSection>
-                )}
 
                 <MotionSection delay={0.1}>
                     <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-800 p-8 space-y-6">
@@ -657,6 +669,135 @@ function HomePage({ isAuthenticated }) {
                     </MotionSection>
                 )}
             </div>
+
+            {/* Floating Featured Tournament button (always present) */}
+            <button
+                onClick={() => setShowFeaturedModal(true)}
+                aria-label="Open featured tournament"
+                className="fixed bottom-6 right-6 z-50 inline-flex items-center justify-center h-12 w-12 rounded-full bg-cyan-500 text-slate-900 shadow-lg hover:scale-105 transition"
+            >
+                <TrophyIcon className="h-6 w-6" />
+            </button>
+
+            {showFeaturedModal && (
+                <div className="fixed inset-0 z-50 flex items-start justify-center p-6">
+                    <div className="absolute inset-0 bg-black/80" onClick={() => setShowFeaturedModal(false)} />
+                    <div className="relative max-w-4xl w-full">
+                        {featuredTournament ? (
+                            <div className="mt-6 rounded-3xl border border-white/6 bg-gradient-to-br from-slate-900/60 to-slate-800/60 p-6 shadow-xl">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+                                    <div className="md:col-span-2 flex flex-col gap-3">
+                                        <div className="flex items-center gap-3">
+                                            <div className="rounded-full bg-gradient-to-br from-indigo-500 to-cyan-400 p-3">
+                                                <TrophyIcon className="h-6 w-6 text-white" />
+                                            </div>
+                                            <div>
+                                                <p className="text-xs uppercase tracking-wider text-cyan-200">Featured Tournament</p>
+                                                <h3 className="text-2xl font-bold text-white leading-tight">{featuredTournament.name}</h3>
+                                            </div>
+                                        </div>
+
+                                        <p className="text-sm text-slate-300 max-w-2xl">{featuredTournament.description}</p>
+
+                                        <div className="flex items-center gap-4 mt-2">
+                                            <div className="inline-flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1 text-sm text-slate-200">
+                                                <span className="font-medium">Dates</span>
+                                                <span className="text-xs text-slate-300">{featuredTournament.startDate ? new Date(featuredTournament.startDate).toLocaleDateString() : ''} — {featuredTournament.endDate ? new Date(featuredTournament.endDate).toLocaleDateString() : ''}</span>
+                                            </div>
+                                            <div className="inline-flex items-center gap-2 rounded-lg bg-white/5 px-3 py-1 text-sm text-slate-200">
+                                                <span className="font-medium">Teams</span>
+                                                <span className="text-xs text-slate-300">{(featuredTournament.teams || []).length}</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-4 grid grid-cols-2 gap-3">
+                                            {(featuredTournament.teams || []).slice(0,6).map((t, idx) => {
+                                                const id = typeof t === 'string' ? t : (t.id || t._id || JSON.stringify(t));
+                                                const resolved = typeof t === 'string' && teamMap[id] ? teamMap[id] : (typeof t === 'string' ? (teamMap[t] || t) : (t && (t.name || t.teamName || t.id || t._id)));
+                                                return (
+                                                    <div key={`${id}-${idx}`} className="flex items-center gap-3 rounded-lg bg-white/3 p-2">
+                                                        <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-sm font-semibold text-white">{(resolved || 'T').slice(0,2).toUpperCase()}</div>
+                                                        <div className="text-sm text-slate-200 truncate">{resolved}</div>
+                                                    </div>
+                                                );
+                                            })}
+                                            {(featuredTournament.teams || []).length > 6 && (
+                                                <div className="flex items-center gap-3 rounded-lg bg-white/3 p-2 text-sm text-slate-300">+{(featuredTournament.teams || []).length - 6} more</div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <aside className="md:col-span-1 bg-gradient-to-br from-white/3 to-white/6 rounded-2xl p-4">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <p className="text-xs uppercase tracking-wide text-slate-300">Live Preview</p>
+                                            <span className="text-xs text-slate-400">{(featuredMatches || []).length} matches</span>
+                                        </div>
+
+                                        {(() => {
+                                            const isCancelled = (m) => {
+                                                const s = (m?.status || '').toString().toLowerCase();
+                                                return s === 'cancelled' || s === 'canceled' || s === 'cancel';
+                                            };
+                                            const live = (featuredMatches || []).find(m => !isCancelled(m) && (m.status === 'live' || m.isLive));
+                                            if (live) {
+                                                const home = live.homeTeamName || (typeof live.homeTeam === 'string' ? (teamMap[live.homeTeam] || live.homeTeam) : (live.homeTeam?.name || live.homeTeam?.teamName || live.teams?.[0]));
+                                                const away = live.awayTeamName || (typeof live.awayTeam === 'string' ? (teamMap[live.awayTeam] || live.awayTeam) : (live.awayTeam?.name || live.awayTeam?.teamName || live.teams?.[1]));
+                                                return (
+                                                    <div className="rounded-lg bg-rose-900/20 border border-rose-600/10 p-3">
+                                                        <div className="text-xs text-rose-200 font-semibold">Live Now</div>
+                                                        <div className="mt-2 text-sm text-white font-semibold">{home} <span className="text-rose-300">vs</span> {away}</div>
+                                                        <div className="mt-2 text-2xl font-bold text-white">{live.score ? `${live.score.home} - ${live.score.away}` : '0 - 0'}</div>
+                                                        <div className="mt-2 text-xs text-slate-300">{live.stage || 'group'}</div>
+                                                    </div>
+                                                );
+                                            }
+                                            const getMatchTime = (m) => {
+                                                const candidate = m?.date || m?.startDate || m?.startAt || m?.startDateTime || m?.kickoff || m?.time;
+                                                const t = candidate ? Date.parse(candidate) : NaN;
+                                                return Number.isFinite(t) ? t : NaN;
+                                            };
+                                            const nowTs = Date.now();
+                                            const upcomingEntry = (featuredMatches || [])
+                                                .map(m => ({ m, t: getMatchTime(m) }))
+                                                .filter(({ m, t }) => !isCancelled(m) && Number.isFinite(t) && t > nowTs)
+                                                .sort((a, b) => a.t - b.t)[0];
+                                            const upcoming = upcomingEntry ? upcomingEntry.m : undefined;
+                                            if (upcoming) {
+                                                const home = upcoming.homeTeamName || (typeof upcoming.homeTeam === 'string' ? (teamMap[upcoming.homeTeam] || upcoming.homeTeam) : (upcoming.homeTeam?.name || upcoming.homeTeam?.teamName || upcoming.teams?.[0]));
+                                                const away = upcoming.awayTeamName || (typeof upcoming.awayTeam === 'string' ? (teamMap[upcoming.awayTeam] || upcoming.awayTeam) : (upcoming.awayTeam?.name || upcoming.awayTeam?.teamName || upcoming.teams?.[1]));
+                                                const displayTime = (() => {
+                                                    const candidate = upcoming.date || upcoming.startDate || upcoming.startAt || upcoming.startDateTime || upcoming.kickoff || upcoming.time;
+                                                    const parsed = candidate ? Date.parse(candidate) : NaN;
+                                                    return Number.isFinite(parsed) ? new Date(parsed).toLocaleString() : 'TBD';
+                                                })();
+                                                return (
+                                                    <div className="rounded-lg bg-white/5 border border-white/8 p-3">
+                                                        <div className="text-xs text-slate-300 font-medium">Next Match</div>
+                                                        <div className="mt-2 text-sm text-white font-semibold">{home} <span className="text-slate-400">vs</span> {away}</div>
+                                                        <div className="mt-2 text-xs text-slate-400">{displayTime}</div>
+                                                        <div className="mt-2 text-xs text-slate-300">{upcoming.stage || 'group'}</div>
+                                                    </div>
+                                                );
+                                            }
+                                            return (
+                                                <div className="rounded-lg bg-white/5 border border-white/8 p-3 text-sm text-slate-300">No upcoming matches</div>
+                                            );
+                                        })()}
+
+                                        <div className="mt-4 flex gap-2">
+                                            <Link to="/fixtures" className="flex-1 text-center rounded-md py-2 bg-white/8 text-white text-sm font-semibold">View Fixtures</Link>
+                                            <Link to="/tournaments" className="flex-1 text-center rounded-md py-2 border border-white/8 text-sm text-slate-200">All Tournaments</Link>
+                                        </div>
+                                    </aside>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="rounded-lg bg-white/5 p-6 text-slate-200">No featured tournament available</div>
+                        )}
+                        <button onClick={() => setShowFeaturedModal(false)} className="absolute -top-3 -right-3 rounded-full bg-white/10 px-3 py-2">Close</button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

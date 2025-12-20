@@ -26,7 +26,15 @@ function FavoritePlayersPage() {
         }
         const favoritesRes = await apiClient.get('favorites/players');
         const favoriteData = Array.isArray(favoritesRes.data) ? favoritesRes.data : [];
-        setPlayers(favoriteData);
+        // Normalize favorites so components can rely on `_id` (support Prisma `id` and legacy `_id`)
+        const normalized = favoriteData.map(item => {
+          if (typeof item === 'string' || typeof item === 'number') {
+            return { _id: String(item), id: item };
+          }
+          const resolvedId = item._id ?? item.id ?? '';
+          return { ...item, _id: String(resolvedId) };
+        });
+        setPlayers(normalized);
         setLoading(false);
       } catch (err) {
         console.error('Error fetching favorite players:', err);
@@ -72,10 +80,11 @@ function FavoritePlayersPage() {
     
     try {
       const favoritesRes = await apiClient.get('favorites/players');
-      const currentFavorites = Array.isArray(favoritesRes.data) ? 
-        favoritesRes.data.map(fav => typeof fav === 'object' ? fav._id : fav) : [];
-      
-      const updatedFavorites = currentFavorites.filter(pid => pid !== strId);
+        const currentFavorites = Array.isArray(favoritesRes.data)
+          ? favoritesRes.data.map(fav => (typeof fav === 'object' ? (fav._id || fav.id) : fav))
+          : [];
+
+        const updatedFavorites = currentFavorites.map(String).filter(pid => pid !== strId);
       await apiClient.put('favorites/players', { favorites: updatedFavorites });
       
       setPlayers(players => players.filter(p => p._id !== strId));

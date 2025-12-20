@@ -14,13 +14,21 @@ const FavoritePlayersPage = lazy(() => import('./components/FavoritePlayersPage'
 const DreamTeamPage = lazy(() => import('./components/DreamTeamPage'));
 const FavoriteTeamsPage = lazy(() => import('./components/FavoriteTeamsPage'));
 const AdminDashboard = lazy(() => import('./components/AdminDashboard'));
+const AdminCoaches = lazy(() => import('./components/AdminCoaches'));
+const AdminCreateTournament = lazy(() => import('./components/AdminCreateTournament'));
+const AdminMatchManager = lazy(() => import('./components/AdminMatchManager'));
+const AdminMatchDetail = lazy(() => import('./components/AdminMatchDetail'));
 const ViewDreamTeam = lazy(() => import('./components/ViewDreamTeam'));
 const FixturesPage = lazy(() => import('./components/FixturesPage'));
 const FunFacts = lazy(() => import('./components/FunFacts'));
 const MerchandisePage = lazy(() => import('./components/MerchandisePage'));
+const TournamentPage = lazy(() => import('./components/TournamentPage'));
+const CoachesPage = lazy(() => import('./components/CoachesPage'));
+const MyCoachBookings = lazy(() => import('./components/MyCoachBookings'));
 const AuthPage = lazy(() => import('./pages/AuthPage'));
 const TeamOwnerApplicationPage = lazy(() => import('./components/TeamOwnerApplicationPage'));
 const BlogDetailsPage = lazy(() => import('./components/BlogDetailsPage'));
+const PlayerDetailsPage = lazy(() => import('./components/PlayerDetailsPage'));
 
 const getSessionFromStorage = () => ({
   username: localStorage.getItem('username'),
@@ -95,6 +103,7 @@ function AppContent({ session, setSession, onAuthSuccess }) {
               <Route path="/" element={<HomePage isAuthenticated={Boolean(session.username)} />} />
               <Route path="/profile" element={<ProfilePage username={session.username} isAdmin={session.isAdmin} />} />
               <Route path="/players" element={<PlayersPage />} />
+              <Route path="/players/:id" element={<PlayerDetailsPage />} />
               
               <Route path="/teams" element={<TeamsPage />} />
               <Route path="/teams/:id" element={<TeamProfile />} />
@@ -104,9 +113,16 @@ function AppContent({ session, setSession, onAuthSuccess }) {
               <Route path="/view-dreamteam" element={<ViewDreamTeam />} />
               <Route path="/team-owner-apply" element={<TeamOwnerApplicationPage />} />
               <Route path="/fixtures" element={<FixturesPage />} />
+              <Route path="/tournaments" element={<TournamentPage />} />
+              <Route path="/admin/tournaments/create" element={<AdminCreateTournament />} />
+              <Route path="/admin/matches" element={<AdminMatchManager />} />
+              <Route path="/admin/matches/:id" element={<AdminMatchDetail />} />
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/merchandise" element={<MerchandisePage isAuthenticated={Boolean(session.username)} isAdmin={session.isAdmin} />} />
+              <Route path="/coaches" element={<CoachesPage />} />
+              <Route path="/coaches/my-bookings" element={<MyCoachBookings />} />
               <Route path="/fun-facts" element={<FunFacts />} />
+              <Route path="/admin/coaches" element={<AdminCoaches />} />
               <Route path="/blog/:id" element={<BlogDetailsPage />} />
               <Route path="/auth" element={<AuthPage onAuthSuccess={onAuthSuccess} />} />
               <Route path="*" element={<div className="flex min-h-[50vh] items-center justify-center text-white">Page not found.</div>} />

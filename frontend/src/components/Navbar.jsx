@@ -8,8 +8,10 @@ import apiClient from '../services/api';
 
 const baseLinks = [
   { to: '/', label: 'Home' },
+  { to: '/coaches', label: 'Coaches' },
   { to: '/players', label: 'Players' },
   { to: '/teams', label: 'Teams' },
+  { to: '/tournaments', label: 'Tournaments' },
   { to: '/fixtures', label: 'Fixtures' },
   { to: '/merchandise', label: 'Merch' }
 ];
@@ -20,6 +22,7 @@ const guestHighlights = [
 
 const baseMemberLinks = [
   { to: '/profile', label: 'Profile hub' },
+  { to: '/fun-facts', label: 'Fun Facts' },
   { to: '/favorites', label: 'Favorite players' },
   { to: '/favorite-teams', label: 'Favorite teams' },
   { to: '/team-owner-apply', label: 'Team Owner' }
@@ -28,6 +31,7 @@ const baseMemberLinks = [
 const teamOwnerLinks = [
   { to: '/dream-team', label: 'Dream Team' },
   { to: '/view-dreamteam', label: 'Community teams' }
+  ,{ to: '/coaches/my-bookings', label: 'My Coach Bookings' }
 ];
 
 const NavItem = ({ to, label, onNavigate }) => (
@@ -80,6 +84,8 @@ function Navbar({ isAuthenticated, isAdmin, username = 'Hooper', onLogout }) {
     };
     fetchTeamOwner();
   }, [isAuthenticated, isAdmin]);
+
+  
 
   useEffect(() => {
     const handleScroll = () => {

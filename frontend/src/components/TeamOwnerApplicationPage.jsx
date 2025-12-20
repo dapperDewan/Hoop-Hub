@@ -151,6 +151,18 @@ const TeamOwnerApplicationPage = () => {
               Manage My Dream Team →
             </button>
             <button
+              onClick={() => navigate('/coaches')}
+              className="bg-white text-indigo-600 px-8 py-3 rounded-lg hover:bg-indigo-50 font-semibold shadow-lg transition-all hover:scale-105"
+            >
+              Browse Coaches →
+            </button>
+            <button
+              onClick={() => navigate('/coaches/my-bookings')}
+              className="bg-white/20 text-white px-8 py-3 rounded-lg hover:bg-white/30 font-semibold shadow-lg transition-all hover:scale-105 border border-white/30"
+            >
+              My Coach Bookings →
+            </button>
+            <button
               onClick={() => navigate('/merchandise')}
               className="bg-white/20 text-white px-8 py-3 rounded-lg hover:bg-white/30 font-semibold shadow-lg transition-all hover:scale-105 border border-white/30"
             >
